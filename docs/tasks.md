@@ -13,11 +13,11 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Phase 1 — `infra/` (CDK, TypeScript)
 
-- [ ] Scaffold CDK app: `bin/infra.ts`, `PipelineStack`, `AppStage` (`envName: 'beta' | 'prod'`)
-- [ ] `DataStack`: DynamoDB `TableV2` (`split-manager-{env}-receipt-sessions`, PK `sessionId`, TTL on `expiresAt`) + S3 bucket for receipt images with lifecycle rule
-- [ ] `ApiStack`: ECS Fargate service + ALB + task IAM role scoped to DynamoDB table, S3 object read/write, `textract:AnalyzeExpense`
-- [ ] `FrontendStack`: S3 bucket + CloudFront distribution
-- [ ] `LambdaStack`: placeholder construct, no resources (P0 reserved only)
+- [x] Scaffold CDK app: `bin/infra.ts`, `PipelineStack`, `AppStage` (`envName: 'beta' | 'prod'`)
+- [x] `DataStack`: DynamoDB `TableV2` (`split-manager-{env}-receipt-sessions`, PK `sessionId`, TTL on `expiresAt`) + S3 bucket for receipt images with lifecycle rule
+- [x] `ApiStack`: ECS Fargate service + ALB + task IAM role scoped to DynamoDB table, S3 object read/write, `textract:AnalyzeExpense`
+- [x] `FrontendStack`: S3 bucket + CloudFront distribution
+- [x] `LambdaStack`: placeholder construct, no resources (P0 reserved only)
 - [ ] `cdk bootstrap` + first deploy; complete CodeStarConnections GitHub OAuth handshake (manual, AWS Console)
 - [ ] Verify pipeline end-to-end on minimal/empty stacks; debug first-deploy issues
 
