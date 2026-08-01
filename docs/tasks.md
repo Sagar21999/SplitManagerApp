@@ -23,15 +23,15 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Phase 2 — `api/` (Java / Spring Boot / Maven)
 
-- [ ] Spring Boot + Maven skeleton, `Dockerfile`, package structure per LLD §3 (`controller/`, `service/`, `repository/`, `model/`, `dto/`, `client/`, `config/`, `exception/`)
-- [ ] Stub controllers + DTOs: `ReceiptController`, `SessionController`, `FriendsController`, `ExpenseController`
-- [ ] `TextractClient` (wraps `AnalyzeExpense`, field/line-item extraction helpers) + `ReceiptParsingService`
-- [ ] `ReceiptSessionRepository` (DynamoDB Enhanced Client, `@DynamoDbBean`) + `ReceiptSessionService`
-- [ ] `SplitCalculationService`: `computeEqualSplit` and `computeItemSplit` per LLD §5 algorithms, including rounding-remainder handling
-- [ ] `SplitwiseClient` interface + `SplitwiseHttpClient` (multipart/form-data to `secure.splitwise.com/api/v3.0`) + `SplitwiseRequestBuilder` (pure, side-effect-free) + `SplitwiseService`
-- [ ] CORS config (restricted to CloudFront domain) + Secrets Manager wiring for the Splitwise API key
-- [ ] Implement `/parse-receipt`, `/session/{sessionId}`, `/friends`, `/submit-expense`, `/internal/submit-expense-dry-run` per LLD §4 contracts
-- [ ] `GlobalExceptionHandler`, `SessionNotFoundException`, `SplitwiseApiException`
+- [x] Spring Boot + Maven skeleton, `Dockerfile`, package structure per LLD §3 (`controller/`, `service/`, `repository/`, `model/`, `dto/`, `client/`, `config/`, `exception/`)
+- [x] Stub controllers + DTOs: `ReceiptController`, `SessionController`, `FriendsController`, `ExpenseController`
+- [x] `TextractClient` (wraps `AnalyzeExpense`, field/line-item extraction helpers) + `ReceiptParsingService`
+- [x] `ReceiptSessionRepository` (DynamoDB Enhanced Client, `@DynamoDbBean`) + `ReceiptSessionService`
+- [x] `SplitCalculationService`: `computeEqualSplit` and `computeItemSplit` per LLD §5 algorithms, including rounding-remainder handling
+- [x] `SplitwiseClient` interface + `SplitwiseHttpClient` (multipart/form-data to `secure.splitwise.com/api/v3.0`) + `SplitwiseRequestBuilder` (pure, side-effect-free) + `SplitwiseService`
+- [~] CORS config (restricted to CloudFront domain) + Secrets Manager wiring for the Splitwise API key (CORS mechanism in place via `FRONTEND_ORIGIN` env var, still defaults to `*` until Phase 3 wires the real CloudFront domain into `ApiStack`; Secrets Manager wiring done)
+- [x] Implement `/parse-receipt`, `/session/{sessionId}`, `/friends`, `/submit-expense`, `/internal/submit-expense-dry-run` per LLD §4 contracts
+- [x] `GlobalExceptionHandler`, `SessionNotFoundException`, `SplitwiseApiException`
 - [ ] Deploy to Beta, manual smoke test, debug
 
 ## Phase 3 — `frontend/` (React + TypeScript)

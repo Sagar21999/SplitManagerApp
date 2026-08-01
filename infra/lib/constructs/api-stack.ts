@@ -53,6 +53,21 @@ export class ApiStack extends cdk.Stack {
       }),
     );
 
+    const splitwiseApiKeySecretName = `split-manager/${props.envName}/splitwise-api-key`;
+    this.taskRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [
+          cdk.Stack.of(this).formatArn({
+            service: 'secretsmanager',
+            resource: 'secret',
+            resourceName: `${splitwiseApiKeySecretName}-??????`,
+            arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
+          }),
+        ],
+      }),
+    );
+
     const taskDefinition = new ecs.FargateTaskDefinition(this, 'ApiTaskDefinition', {
       cpu: 256,
       memoryLimitMiB: 512,
@@ -76,6 +91,7 @@ export class ApiStack extends cdk.Stack {
         ENV_NAME: props.envName,
         TABLE_NAME: props.table.tableName,
         IMAGES_BUCKET_NAME: props.imagesBucket.bucketName,
+        SPLITWISE_API_KEY_SECRET_NAME: splitwiseApiKeySecretName,
       },
       logging: ecs.LogDrivers.awsLogs({
         streamPrefix: 'api',

@@ -1,0 +1,17 @@
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+split-manager:
+  env-name: ${ENV_NAME:local}
+  table-name: ${TABLE_NAME:split-manager-local-receipt-sessions}
+  images-bucket-name: ${IMAGES_BUCKET_NAME:split-manager-local-receipt-images}
+  session-ttl-hours: 24
+  frontend-origin: ${FRONTEND_ORIGIN:*}
+  split-page-base-url: ${SPLIT_PAGE_BASE_URL:}
+  splitwise-api-key-secret-name: ${SPLITWISE_API_KEY_SECRET_NAME:split-manager/splitwise-api-key}

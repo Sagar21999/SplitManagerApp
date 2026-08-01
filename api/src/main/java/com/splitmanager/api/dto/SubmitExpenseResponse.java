@@ -1,0 +1,14 @@
+package com.splitmanager.api.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class SubmitExpenseResponse {
+  private boolean success;
+  private String splitwiseExpenseId;
+  private String error;
+}
