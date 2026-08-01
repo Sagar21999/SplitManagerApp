@@ -3,9 +3,13 @@ import * as pipelines from 'aws-cdk-lib/pipelines';
 import { Construct } from 'constructs';
 import { AppStage } from './app-stage';
 
-// Set after completing the CodeStarConnections GitHub OAuth handshake in the
-// AWS Console (Developer Tools > Settings > Connections) — see docs/loe.md
-// Phase 1. Passed via CDK context: `cdk deploy -c codeStarConnectionArn=...`.
+// Set once, after completing the CodeStarConnections GitHub OAuth handshake in
+// the AWS Console (CodePipeline > Settings > Connections) — see docs/loe.md
+// Phase 1. Not a secret (an ARN grants nothing without the AWS account's own
+// IAM permissions), so it's safe to commit rather than pass as CLI context —
+// CodePipeline's own self-mutating synth step has no way to supply `-c` flags.
+const GITHUB_CONNECTION_ARN =
+  'arn:aws:codeconnections:us-east-1:548171705631:connection/cbf0c0f7-4149-41b3-baa7-c04319d264a7';
 const GITHUB_OWNER_REPO = 'Sagar21999/SplitManagerApp';
 const GITHUB_BRANCH = 'main';
 
@@ -13,16 +17,7 @@ export class PipelineStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: cdk.StackProps) {
     super(scope, id, props);
 
-    const connectionArn = this.node.tryGetContext('codeStarConnectionArn');
-    if (!connectionArn) {
-      throw new Error(
-        'Missing required context value "codeStarConnectionArn". ' +
-          'Complete the CodeStarConnections GitHub handshake in the AWS console, then pass ' +
-          '-c codeStarConnectionArn=<arn> to cdk commands.',
-      );
-    }
-
-    const pipeline = this.buildPipeline(connectionArn);
+    const pipeline = this.buildPipeline(GITHUB_CONNECTION_ARN);
 
     const betaAppStage = new AppStage(this, 'Beta', { envName: 'beta' });
     const betaStage = pipeline.addStage(betaAppStage);
