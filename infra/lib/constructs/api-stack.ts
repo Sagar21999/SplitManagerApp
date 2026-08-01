@@ -9,6 +9,7 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 import * as path from 'path';
+import * as fs from 'fs';
 
 export interface ApiStackProps extends cdk.StackProps {
   envName: string;
@@ -58,11 +59,19 @@ export class ApiStack extends cdk.Stack {
       taskRole: this.taskRole,
     });
 
+    // Falls back to a public placeholder image until api/Dockerfile exists (Phase 2),
+    // so infra/'s pipeline can be scaffolded and verified independently of api/'s progress.
+    const apiDockerfilePath = path.join(__dirname, '../../../api/Dockerfile');
+    const hasApiDockerfile = fs.existsSync(apiDockerfilePath);
+    const containerPort = hasApiDockerfile ? 8080 : 80;
+
     taskDefinition.addContainer('ApiContainer', {
-      image: ecs.ContainerImage.fromAsset(path.join(__dirname, '../../../api'), {
-        platform: ecr_assets.Platform.LINUX_AMD64,
-      }),
-      portMappings: [{ containerPort: 8080 }],
+      image: hasApiDockerfile
+        ? ecs.ContainerImage.fromAsset(path.join(__dirname, '../../../api'), {
+            platform: ecr_assets.Platform.LINUX_AMD64,
+          })
+        : ecs.ContainerImage.fromRegistry('public.ecr.aws/nginx/nginx:latest'),
+      portMappings: [{ containerPort }],
       environment: {
         ENV_NAME: props.envName,
         TABLE_NAME: props.table.tableName,
@@ -90,9 +99,9 @@ export class ApiStack extends cdk.Stack {
 
     const listener = this.loadBalancer.addListener('ApiListener', { port: 80, open: true });
     listener.addTargets('ApiTargets', {
-      port: 8080,
+      port: containerPort,
       targets: [this.service],
-      healthCheck: { path: '/actuator/health' },
+      healthCheck: { path: hasApiDockerfile ? '/actuator/health' : '/' },
     });
   }
 }
