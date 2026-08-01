@@ -6,10 +6,10 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Phase 0 — Setup & prerequisites
 
-- [ ] Confirm AWS account access, configure local credentials
+- [x] Confirm AWS account access, configure local credentials
 - [x] Create the GitHub monorepo structure (`infra/`, `frontend/`, `api/`, `lambdas/`, `integ-tests/`)
-- [ ] Register Splitwise app; create a dummy test contact/group for dev use
-- [~] Set up local dev environment: Java 21 + Maven, Node + npm, AWS CDK CLI, Docker, DynamoDB Local (Java 21, Maven, Node/npm, AWS CDK CLI, Docker installed; DynamoDB Local container not yet running)
+- [x] Register Splitwise app; create a dummy test contact/group for dev use
+- [x] Set up local dev environment: Java 21 + Maven, Node + npm, AWS CDK CLI, Docker, DynamoDB Local
 
 ## Phase 1 — `infra/` (CDK, TypeScript)
 
