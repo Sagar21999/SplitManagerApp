@@ -18,8 +18,8 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [x] `ApiStack`: ECS Fargate service + ALB + task IAM role scoped to DynamoDB table, S3 object read/write, `textract:AnalyzeExpense`
 - [x] `FrontendStack`: S3 bucket + CloudFront distribution
 - [x] `LambdaStack`: placeholder construct, no resources (P0 reserved only)
-- [ ] `cdk bootstrap` + first deploy; complete CodeStarConnections GitHub OAuth handshake (manual, AWS Console)
-- [ ] Verify pipeline end-to-end on minimal/empty stacks; debug first-deploy issues
+- [x] `cdk bootstrap` + first deploy; complete CodeStarConnections GitHub OAuth handshake (manual, AWS Console)
+- [x] Verify pipeline end-to-end on minimal/empty stacks; debug first-deploy issues
 
 ## Phase 2 — `api/` (Java / Spring Boot / Maven)
 
