@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as codepipeline from 'aws-cdk-lib/aws-codepipeline';
 import * as pipelines from 'aws-cdk-lib/pipelines';
 import { Construct } from 'constructs';
 import { AppStage } from './app-stage';
@@ -35,6 +36,9 @@ export class PipelineStack extends cdk.Stack {
   private buildPipeline(connectionArn: string): pipelines.CodePipeline {
     return new pipelines.CodePipeline(this, 'Pipeline', {
       pipelineName: 'split-manager-pipeline',
+      // V1: flat monthly pricing rather than V2's per-minute pricing — cheaper
+      // for a personal project with infrequent pipeline runs.
+      pipelineType: codepipeline.PipelineType.V1,
       synth: new pipelines.ShellStep('Synth', {
         input: pipelines.CodePipelineSource.connection(GITHUB_OWNER_REPO, GITHUB_BRANCH, {
           connectionArn,

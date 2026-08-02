@@ -105,6 +105,9 @@ export class ApiStack extends cdk.Stack {
       desiredCount: 1,
       assignPublicIp: true,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+      // Spring Boot + eager AWS SDK client init takes ~60s to come up; without this,
+      // the ALB marks the task unhealthy before it's ready and ECS cycles it forever.
+      healthCheckGracePeriod: cdk.Duration.seconds(120),
     });
 
     this.loadBalancer = new elbv2.ApplicationLoadBalancer(this, 'ApiLoadBalancer', {
