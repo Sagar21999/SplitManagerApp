@@ -26,8 +26,11 @@ public class AwsClientConfig {
     return S3Client.create();
   }
 
+  // Named awsTextractClient (not textractClient) to avoid colliding with the
+  // @Component wrapper class com.splitmanager.api.client.TextractClient, whose
+  // auto-generated Spring bean name is also "textractClient".
   @Bean
-  public TextractClient textractClient() {
+  public TextractClient awsTextractClient() {
     return TextractClient.create();
   }
 
