@@ -2,7 +2,9 @@
 
 *Companion documents: `brd.md` (business "why") and `hld.md` (architecture). This document expands the HLD into the engineering detail needed right before coding begins: exact class names and method signatures, database schemas with data types, algorithms, and UI component structure. If anything here conflicts with the HLD, the HLD's architecture wins; if anything here conflicts with the BRD's requirements, the BRD wins.*
 
-*Note: while writing this document, two gaps in the earlier design surfaced and are resolved directly below rather than left open — (1) the frontend previously had no defined way to fetch a session's parsed data when the split page loads (the earlier `POST /parse-receipt` response is consumed by the Shortcut, not the browser) — resolved by adding `GET /session/{sessionId}`; (2) the exact mechanism for how `integ-tests/` stubs the Splitwise call was previously described only as "stubbed" without a concrete implementation — resolved by extracting request-building into a pure, independently-callable component and a dedicated dry-run endpoint (see "Integ-test stubbing mechanism" below).*
+*Note: while writing this document, a gap in the earlier design surfaced and is resolved directly below rather than left open — the frontend previously had no defined way to fetch a session's parsed data when the split page loads (the earlier `POST /parse-receipt` response is consumed by the Shortcut, not the browser) — resolved by adding `GET /session/{sessionId}`.*
+
+*Update: Splitwise's public API is no longer available. This document has been revised to replace direct-to-Splitwise submission with a "manual handoff" — the API computes the split and returns a shareable summary for the user to copy into Splitwise (or anywhere else) themselves. This removed the `SplitwiseClient`/`SplitwiseHttpClient`/`SplitwiseRequestBuilder`/`SplitwiseService` components, the `GET /friends` endpoint, and the `/internal/submit-expense-dry-run` dry-run mechanism (no longer needed — there's no external, rate-limited API call left to avoid in tests).*
 
 ## 1. Repository layout
 
@@ -87,14 +89,14 @@ const prodStage = pipeline.addStage(new AppStage(this, "Prod", { envName: "prod"
 
 ```
 com.splitmanager.api
-  controller/   ReceiptController, SessionController, FriendsController, ExpenseController
-  service/      ReceiptParsingService, SplitCalculationService, SplitwiseService, ReceiptSessionService
+  controller/   ReceiptController, SessionController, ExpenseController
+  service/      ReceiptParsingService, SplitCalculationService, SplitSummaryService, ReceiptSessionService
   repository/   ReceiptSessionRepository
-  model/        ReceiptSession, ReceiptItem, FinalizedSplit, SplitMode, SplitwiseFriend, SplitwiseGroup, SessionStatus
-  dto/          ParseReceiptResponse, SessionResponse, FriendsResponse, SubmitExpenseRequest, SubmitExpenseResponse
-  client/       TextractClient, SplitwiseClient (interface), SplitwiseHttpClient, SplitwiseRequestBuilder
-  config/       AwsClientConfig, WebConfig, SecretsConfig
-  exception/    SessionNotFoundException, SplitwiseApiException, GlobalExceptionHandler
+  model/        ReceiptSession, ReceiptItem, FinalizedSplit, SplitMode, SessionStatus
+  dto/          ParseReceiptResponse, SessionResponse, SplitSummaryDto, SubmitExpenseRequest, FinalizeSplitResponse
+  client/       TextractClient
+  config/       AwsClientConfig, WebConfig
+  exception/    SessionNotFoundException, GlobalExceptionHandler
 ```
 
 ### 3.1 Controllers
@@ -113,21 +115,9 @@ class SessionController {
 }
 
 @RestController
-class FriendsController {
-  @GetMapping("/friends")
-  ResponseEntity<FriendsResponse> getFriends();
-}
-
-@RestController
 class ExpenseController {
-  @PostMapping("/submit-expense")
-  ResponseEntity<SubmitExpenseResponse> submitExpense(@RequestBody SubmitExpenseRequest request);
-
-  // Internal-only: builds the Splitwise request without sending it, so integ-tests
-  // can verify request-construction without creating a real Splitwise expense.
-  // See "Integ-test stubbing mechanism" below.
-  @PostMapping("/internal/submit-expense-dry-run")
-  ResponseEntity<SplitwiseExpenseRequestDto> submitExpenseDryRun(@RequestBody SubmitExpenseRequest request);
+  @PostMapping("/finalize-split")
+  ResponseEntity<FinalizeSplitResponse> finalizeSplit(@RequestBody SubmitExpenseRequest request);
 }
 ```
 
@@ -157,13 +147,16 @@ class ReceiptSessionService {
   ReceiptSession create(String imageS3Key, String contentType);
   ReceiptSession get(String sessionId); // throws SessionNotFoundException
   void updateParsedFields(String sessionId, ParsedReceipt parsed);
-  void markSubmitted(String sessionId, String splitwiseExpenseId);
-  void markFailed(String sessionId, String reason);
+  void markParseFailed(String sessionId, String reason);
+  void markFinalized(String sessionId);
 }
 
-class SplitwiseService {
-  SplitwiseFriendsAndGroups getFriendsAndGroups();
-  String createExpense(ReceiptSession session, FinalizedSplit split, byte[] imageBytes); // returns splitwiseExpenseId
+// Pure, side-effect-free — reuses the already-computed FinalizedSplit.
+class SplitSummaryService {
+  SplitSummaryDto generateSummary(ReceiptSession session, FinalizedSplit split);
+  // Builds a structured per-person breakdown and a formatted, copy-pasteable
+  // text block (merchant, per-person amounts) for manual handoff to Splitwise/
+  // any other app.
 }
 ```
 
@@ -175,23 +168,6 @@ class TextractClient {
   // mapping helpers
   Optional<String> extractSummaryField(ExpenseDocument doc, String fieldType); // e.g. "VENDOR_NAME", "TOTAL", "TAX"
   List<ReceiptItem> extractLineItems(ExpenseDocument doc);
-}
-
-interface SplitwiseClient {
-  List<SplitwiseFriend> getFriends();
-  List<SplitwiseGroup> getGroups();
-  String createExpense(SplitwiseExpenseRequestDto request); // returns Splitwise expense ID
-}
-
-// Production implementation — real HTTP calls to secure.splitwise.com/api/v3.0.
-class SplitwiseHttpClient implements SplitwiseClient { ... }
-
-// Pure, side-effect-free request construction — used by both the real submit-expense
-// flow and the dry-run endpoint, and unit-testable with no HTTP involved at all.
-class SplitwiseRequestBuilder {
-  SplitwiseExpenseRequestDto build(ReceiptSession session, FinalizedSplit split);
-  // Builds the multipart/form-data shape: per-user paid_share/owed_share fields,
-  // cost = sum(owed_share), description = merchant, receipt image attached by S3 key reference.
 }
 ```
 
@@ -211,12 +187,11 @@ class ReceiptSession {
   BigDecimal tax;                   // nullable
   BigDecimal tip;                   // nullable
   BigDecimal total;                 // nullable
-  FinalizedSplit finalizedSplit;    // nullable, written right before submit
-  String splitwiseExpenseId;        // nullable
+  FinalizedSplit finalizedSplit;    // nullable, written right before finalize
   String failureReason;             // nullable
 }
 
-enum SessionStatus { PARSING, PARSED, PARSE_FAILED, SUBMITTED, SUBMIT_FAILED }
+enum SessionStatus { PARSING, PARSED, PARSE_FAILED, FINALIZED }
 
 class ReceiptItem {
   String id;         // UUID, client-generated on add, server-generated on parse
@@ -241,7 +216,7 @@ Table name: `split-manager-{env}-receipt-sessions` (e.g. `split-manager-beta-rec
 |---|---|---|
 | `sessionId` | S (String) | Partition key. UUID v4. |
 | `userId` | S | Constant `"single-user"` for P0. |
-| `status` | S | One of `PARSING`, `PARSED`, `PARSE_FAILED`, `SUBMITTED`, `SUBMIT_FAILED`. |
+| `status` | S | One of `PARSING`, `PARSED`, `PARSE_FAILED`, `FINALIZED`. |
 | `createdAt` | N (Number) | Epoch seconds. |
 | `expiresAt` | N | Epoch seconds. **TTL attribute** — DynamoDB auto-deletes the item after this time. |
 | `receiptImageS3Key` | S | |
@@ -251,8 +226,7 @@ Table name: `split-manager-{env}-receipt-sessions` (e.g. `split-manager-beta-rec
 | `tax` | N | Nullable/absent. |
 | `tip` | N | Nullable/absent. |
 | `total` | N | Nullable/absent. |
-| `finalizedSplit` | M | Nullable/absent until submit. Shape: `{ mode: S, participantShares: M<S,N>, payerId: S }`. |
-| `splitwiseExpenseId` | S | Nullable/absent until submit succeeds. |
+| `finalizedSplit` | M | Nullable/absent until finalize. Shape: `{ mode: S, participantShares: M<S,N>, payerId: S }`. |
 | `failureReason` | S | Nullable/absent. |
 
 No secondary indexes — every access pattern for P0 is a direct `GetItem`/`PutItem`/`UpdateItem` by `sessionId`. Accessed via the AWS SDK for Java v2's DynamoDB Enhanced Client (`software.amazon.awssdk:dynamodb-enhanced`), with `ReceiptSession` annotated as a `@DynamoDbBean`.
@@ -287,22 +261,10 @@ class ReceiptSessionRepository {
 - Response `200`: same shape as `ParseReceiptResponse` minus `url`, plus `status`.
 - Response `404` if the session has expired or never existed.
 
-### `GET /friends`
-```json
-{
-  "friends": [{ "splitwiseId": 0, "firstName": "string", "lastName": "string", "avatarUrl": "string" }],
-  "groups": [{ "id": 0, "name": "string", "members": [ /* SplitParticipant[] */ ] }]
-}
-```
-
-### `POST /submit-expense`
+### `POST /finalize-split`
 - Body: `{ "sessionId": "string", "split": { "mode": "EQUAL"|"BY_ITEM", "participantShares": {"participantId": 0}, "payerId": "string" } }`
-- Response `200`: `{ "success": true, "splitwiseExpenseId": "string" }` or `{ "success": false, "error": "string" }`. Idempotent on an already-`SUBMITTED` session.
-
-### `POST /internal/submit-expense-dry-run` *(new — integ-test support)*
-- Same request body as `/submit-expense`.
-- Runs `SplitCalculationService` + `SplitwiseRequestBuilder` only — never calls `SplitwiseClient`, never touches Splitwise, never updates the session's status.
-- Response `200`: the constructed `SplitwiseExpenseRequestDto` (the exact `paid_share`/`owed_share`/`cost` fields that *would* have been sent), for the integ test to assert against.
+- Response `200`: `{ "success": true, "summary": { "amountOwedByParticipant": {"participantId": 0}, "shareText": "string" }, "error": null }`.
+- `shareText` is a formatted, copy-pasteable plain-text block (merchant, total, per-person amounts) for the user to paste into Splitwise or any other app. Idempotent on an already-`FINALIZED` session (regenerates the summary from the stored split rather than erroring).
 
 ## 5. Split-calculation algorithm
 
@@ -342,7 +304,7 @@ owedShare[payerId] += remainder                             // the payer absorbs
 return FinalizedSplit(BY_ITEM, owedShare, payerId)
 ```
 
-Both algorithms guarantee `sum(shares.values()) == total` exactly, which is required before `SplitwiseRequestBuilder` builds the request (Splitwise's `create_expense` expects `cost` to equal the sum of `owed_share` across participants).
+Both algorithms guarantee `sum(shares.values()) == total` exactly, which `SplitSummaryService` relies on when building the per-person breakdown and share text.
 
 ## 6. `frontend/` — React + TypeScript
 
@@ -359,14 +321,13 @@ App
      ├─ TipEntrySection
      │   └─ TipPresetButtons (18/20/25%) + manual numeric input
      ├─ ParticipantsSection
-     │   ├─ GroupSelector           (dropdown of Splitwise groups)
-     │   └─ FriendMultiSelect       (checkboxes, individual friends)
+     │   └─ ParticipantNameEntry    (free-text add/remove participant names)
      ├─ SplitModeToggle             (Equal | By Item)
      ├─ ItemAssignmentGrid          (rendered only in By Item mode)
      │   └─ ItemAssignmentRow       (per item: a checkbox per participant)
      ├─ SplitSummary                (computed per-person totals, read-only preview)
      ├─ ConfirmButton
-     └─ ConfirmationModal           (success/failure state, terminal)
+     └─ ConfirmationModal           (terminal state: shows the shareable summary text + a copy action)
 ```
 
 **Key component props (TypeScript):**
@@ -405,8 +366,7 @@ function useReceiptSession(sessionId: string): {
 
 ```ts
 function getSession(sessionId: string): Promise<SessionResponse>;
-function getFriends(): Promise<FriendsResponse>;
-function submitExpense(request: SubmitExpenseRequest): Promise<SubmitExpenseResponse>;
+function finalizeSplit(request: SubmitExpenseRequest): Promise<FinalizeSplitResponse>;
 ```
 
 Split totals shown in `SplitSummary` are computed client-side, mirroring the API's `SplitCalculationService` logic (see Section 5) purely for live preview as the user adjusts assignments — the API recomputes and is the source of truth at submit time; the frontend never sends pre-computed shares that the API doesn't independently verify.
@@ -424,25 +384,13 @@ class SessionIntegTest {
   @Test void getSessionReturnsPreviouslyParsedData();     // chains off a parse-receipt call
 }
 
-class FriendsIntegTest {
-  @Test void getFriendsReturnsListFromLiveSplitwise();    // calls live Beta /friends (Splitwise read call, no rate-limit concern)
-}
-
-class SubmitExpenseDryRunIntegTest {
-  @Test void dryRunBuildsCorrectSplitwiseRequest();        // calls live Beta /internal/submit-expense-dry-run
-                                                             // asserts paid_share/owed_share/cost fields, WITHOUT
-                                                             // ever calling Splitwise's real create_expense
+class FinalizeSplitIntegTest {
+  @Test void finalizeSplitReturnsCorrectSummary();         // calls live Beta /finalize-split, asserts
+                                                             // amountOwedByParticipant and shareText
 }
 ```
 
-### Integ-test stubbing mechanism (resolves the earlier open item)
-
-Rather than intercepting outbound HTTP from a running Beta service (impractical against an already-deployed ECS task) or hitting live Splitwise on every automatic pipeline run (risks the ~3-4/day free-tier cap), `submit-expense`'s request-construction logic (`SplitwiseRequestBuilder`) is a pure, side-effect-free component reachable two ways in production code:
-
-1. `POST /submit-expense` — builds the request, then actually calls `SplitwiseClient.createExpense()`. Used by real app traffic.
-2. `POST /internal/submit-expense-dry-run` — builds the request via the same `SplitwiseRequestBuilder`, returns it as JSON, and stops — never touches `SplitwiseClient`. Used only by `SubmitExpenseDryRunIntegTest`.
-
-This keeps the stub entirely inside the already-deployed API (no separate mock server, no per-test environment spin-up) while guaranteeing the integ-test suite never creates a real Splitwise expense on an automatic pipeline run. An actual live `create_expense` smoke test against the Splitwise dummy account remains a manual, occasional check — not part of the automated suite.
+No external API is called by `POST /finalize-split` — `SplitSummaryService` is a pure, local computation over the already-parsed session and the submitted split — so there's no rate-limit concern and no need for a separate dry-run endpoint or stubbing mechanism; the integ test hits the real endpoint directly.
 
 ## 8. `lambdas/`
 

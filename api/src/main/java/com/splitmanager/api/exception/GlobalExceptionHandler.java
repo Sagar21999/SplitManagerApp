@@ -13,9 +13,4 @@ public class GlobalExceptionHandler {
   public ResponseEntity<Map<String, String>> handleSessionNotFound(SessionNotFoundException ex) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
   }
-
-  @ExceptionHandler(SplitwiseApiException.class)
-  public ResponseEntity<Map<String, String>> handleSplitwiseApiException(SplitwiseApiException ex) {
-    return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of("error", ex.getMessage()));
-  }
 }

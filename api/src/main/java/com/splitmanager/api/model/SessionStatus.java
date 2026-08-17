@@ -4,6 +4,5 @@ public enum SessionStatus {
   PARSING,
   PARSED,
   PARSE_FAILED,
-  SUBMITTED,
-  SUBMIT_FAILED,
+  FINALIZED,
 }

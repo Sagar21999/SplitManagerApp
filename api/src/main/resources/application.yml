@@ -14,4 +14,3 @@ split-manager:
   session-ttl-hours: 24
   frontend-origin: ${FRONTEND_ORIGIN:*}
   split-page-base-url: ${SPLIT_PAGE_BASE_URL:}
-  splitwise-api-key-secret-name: ${SPLITWISE_API_KEY_SECRET_NAME:split-manager/splitwise-api-key}

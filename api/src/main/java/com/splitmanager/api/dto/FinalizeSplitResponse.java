@@ -7,8 +7,8 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class SubmitExpenseResponse {
+public class FinalizeSplitResponse {
   private boolean success;
-  private String splitwiseExpenseId;
+  private SplitSummaryDto summary;
   private String error;
 }

@@ -60,17 +60,9 @@ public class ReceiptSessionService {
     repository.update(session);
   }
 
-  public void markSubmitted(String sessionId, String splitwiseExpenseId) {
+  public void markFinalized(String sessionId) {
     ReceiptSession session = get(sessionId);
-    session.setStatus(SessionStatus.SUBMITTED);
-    session.setSplitwiseExpenseId(splitwiseExpenseId);
-    repository.update(session);
-  }
-
-  public void markFailed(String sessionId, String reason) {
-    ReceiptSession session = get(sessionId);
-    session.setStatus(SessionStatus.SUBMIT_FAILED);
-    session.setFailureReason(reason);
+    session.setStatus(SessionStatus.FINALIZED);
     repository.update(session);
   }
 }

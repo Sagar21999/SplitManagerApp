@@ -4,11 +4,12 @@
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
+*Update: Splitwise's public API is no longer available. Direct-to-Splitwise submission has been replaced with a manual handoff — the API computes the split and returns a shareable summary for the user to copy/paste into Splitwise (or anywhere else). See `brd.md`/`hld.md`/`lld.md`/`loe.md` for the full revision.*
+
 ## Phase 0 — Setup & prerequisites
 
 - [x] Confirm AWS account access, configure local credentials
 - [x] Create the GitHub monorepo structure (`infra/`, `frontend/`, `api/`, `lambdas/`, `integ-tests/`)
-- [x] Register Splitwise app; create a dummy test contact/group for dev use
 - [x] Set up local dev environment: Java 21 + Maven, Node + npm, AWS CDK CLI, Docker, DynamoDB Local
 
 ## Phase 1 — `infra/` (CDK, TypeScript)
@@ -24,14 +25,14 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 ## Phase 2 — `api/` (Java / Spring Boot / Maven)
 
 - [x] Spring Boot + Maven skeleton, `Dockerfile`, package structure per LLD §3 (`controller/`, `service/`, `repository/`, `model/`, `dto/`, `client/`, `config/`, `exception/`)
-- [x] Stub controllers + DTOs: `ReceiptController`, `SessionController`, `FriendsController`, `ExpenseController`
+- [x] Stub controllers + DTOs: `ReceiptController`, `SessionController`, `ExpenseController`
 - [x] `TextractClient` (wraps `AnalyzeExpense`, field/line-item extraction helpers) + `ReceiptParsingService`
 - [x] `ReceiptSessionRepository` (DynamoDB Enhanced Client, `@DynamoDbBean`) + `ReceiptSessionService`
 - [x] `SplitCalculationService`: `computeEqualSplit` and `computeItemSplit` per LLD §5 algorithms, including rounding-remainder handling
-- [x] `SplitwiseClient` interface + `SplitwiseHttpClient` (multipart/form-data to `secure.splitwise.com/api/v3.0`) + `SplitwiseRequestBuilder` (pure, side-effect-free) + `SplitwiseService`
-- [~] CORS config (restricted to CloudFront domain) + Secrets Manager wiring for the Splitwise API key (CORS mechanism in place via `FRONTEND_ORIGIN` env var, still defaults to `*` until Phase 3 wires the real CloudFront domain into `ApiStack`; Secrets Manager wiring done)
-- [x] Implement `/parse-receipt`, `/session/{sessionId}`, `/friends`, `/submit-expense`, `/internal/submit-expense-dry-run` per LLD §4 contracts
-- [x] `GlobalExceptionHandler`, `SessionNotFoundException`, `SplitwiseApiException`
+- [x] `SplitSummaryService`: per-person breakdown + shareable text summary (replaces the removed `SplitwiseClient`/`SplitwiseRequestBuilder`/`SplitwiseService` — Splitwise's API is no longer available)
+- [~] CORS config (restricted to CloudFront domain) — mechanism in place via `FRONTEND_ORIGIN` env var, still defaults to `*` until Phase 3 wires the real CloudFront domain into `ApiStack`
+- [x] Implement `/parse-receipt`, `/session/{sessionId}`, `/finalize-split` per LLD §4 contracts (`/friends` and `/internal/submit-expense-dry-run` removed along with the Splitwise integration)
+- [x] `GlobalExceptionHandler`, `SessionNotFoundException`
 - [ ] Deploy to Beta, manual smoke test, debug
 
 ## Phase 3 — `frontend/` (React + TypeScript)
@@ -40,10 +41,10 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [ ] `useReceiptSession` hook (calls `GET /session/{sessionId}` on mount)
 - [ ] `ReceiptReviewSection` (`ReceiptItemRow`, `AddItemButton`) — editable name/price, add/remove items
 - [ ] `TipEntrySection` (18/20/25% presets + manual numeric input)
-- [ ] `ParticipantsSection` (`GroupSelector`, `FriendMultiSelect`) wired to `GET /friends`
+- [ ] `ParticipantsSection` (`ParticipantNameEntry`) — free-text add/remove participant names, no external contacts lookup
 - [ ] `SplitModeToggle` (Equal | By Item) + `ItemAssignmentGrid`/`ItemAssignmentRow` (tap-to-assign, By Item only)
 - [ ] `SplitSummary` — client-side preview mirroring `SplitCalculationService` logic (LLD §5), read-only
-- [ ] `ConfirmButton` + `ConfirmationModal` + submit flow (`POST /submit-expense`)
+- [ ] `ConfirmButton` + `ConfirmationModal` + finalize flow (`POST /finalize-split`), showing the shareable summary text with a copy action
 - [ ] Mobile-responsive styling pass (in-Shortcut web view on a phone)
 - [ ] Deploy to Beta, manual smoke test, debug
 
@@ -56,12 +57,10 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 ## Phase 5 — Automated testing
 
 - [ ] Unit tests: `SplitCalculationService` edge cases (single item, uneven sharers, rounding remainder, zero tip)
-- [ ] Unit tests: `SplitwiseRequestBuilder`
+- [ ] Unit tests: `SplitSummaryService` (breakdown correctness, text formatting)
 - [ ] `integ-tests/` package scaffold (JUnit + REST Assured)
-- [ ] `ParseReceiptIntegTest`, `SessionIntegTest`, `FriendsIntegTest`
-- [ ] `/internal/submit-expense-dry-run` endpoint (if not already done in Phase 2) + `SubmitExpenseDryRunIntegTest`
+- [ ] `ParseReceiptIntegTest`, `SessionIntegTest`, `FinalizeSplitIntegTest`
 - [ ] Wire `IntegTests` `CodeBuildStep` into `betaStage.addPost(...)`; verify a failure actually blocks Prod promotion
-- [ ] Manual live `create_expense` smoke test against the Splitwise dummy account (occasional, not automated)
 
 ## Phase 6 — Launch
 
@@ -76,9 +75,9 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 - Phases 1–3 can start in parallel after Phase 0; each has an independent skeleton milestone.
 - Phase 4 needs all three of `infra/`, `api/`, `frontend/` deployed to Beta first.
-- Phase 5's `integ-tests/` depends on `/internal/submit-expense-dry-run` existing in `api/` (Phase 2), so it naturally follows.
+- Phase 5's `integ-tests/` depends on `POST /finalize-split` existing in `api/` (Phase 2), so it naturally follows.
 - Phase 6 depends on everything above being green.
 
 ## Explicitly out of scope for this task list
 
-Per BRD non-goals / HLD-LLD deferrals: `lambdas/` package internals, any auth/authz layer, percentage-split mode, Splitwise rate-limit retry/queue logic, permanent history/reporting, bank/statement reconciliation.
+Per BRD non-goals / HLD-LLD deferrals: `lambdas/` package internals, any auth/authz layer, percentage-split mode, automatic posting to Splitwise or any other third-party service, permanent history/reporting, bank/statement reconciliation.

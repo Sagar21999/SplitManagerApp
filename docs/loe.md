@@ -7,7 +7,7 @@
 - **One developer**, working solo, with AI-assisted scaffolding (this is not a team estimate with parallelized workstreams).
 - Estimates are **effort hours** — focused working time, not elapsed calendar time. A "part-time pace" and "focused pace" conversion is given at the end so this maps to however much time is actually available per day.
 - The LLD is treated as settled — these numbers assume no further architecture changes mid-build. A material scope change (e.g., adding auth, adding history/reporting) would need a new estimate for that slice, not a revision of this one.
-- AWS account access, a GitHub account, and a Splitwise account are assumed available going in (they're tracked as prerequisites below, not blockers baked silently into other numbers).
+- AWS account access and a GitHub account are assumed available going in (they're tracked as prerequisites below, not blockers baked silently into other numbers). A Splitwise account is useful for manually pasting the finalized summary, but no longer a build dependency since Splitwise's public API is gone.
 - Manual, human-only steps that can't be scripted (the CodeStarConnections GitHub OAuth handshake, in particular) are called out explicitly — they cost calendar time waiting on the user, not developer effort, but are included since they gate progress.
 - First-time AWS wiring (ECS/ALB networking, IAM grants, CDK/TypeScript tooling versions) has caused real friction in earlier attempts at this project — the infra phase includes a debugging buffer for that reason, not because the CDK code itself is expected to be large.
 
@@ -19,9 +19,8 @@
 |---|---|
 | Confirm AWS account access, configure local credentials | 1.0 |
 | Create the GitHub monorepo | 0.5 |
-| Splitwise app registration + dummy test contact/group | 0.5 |
 | Local dev environment: Java 21 + Maven, Node + npm, AWS CDK CLI, Docker, DynamoDB Local | 2.0 |
-| **Subtotal** | **4.0** |
+| **Subtotal** | **3.5** |
 
 ### Phase 1 — `infra/` (CDK, TypeScript)
 
@@ -40,14 +39,14 @@
 | Task | Hours |
 |---|---|
 | Spring Boot + Maven skeleton, Dockerfile | 2.0 |
-| Controllers (`Receipt`, `Session`, `Friends`, `Expense`) stubbed + DTOs | 2.0 |
+| Controllers (`Receipt`, `Session`, `Expense`) stubbed + DTOs | 1.5 |
 | `TextractClient` + `ReceiptParsingService` (mapping `SummaryFields`/`LineItemGroups`) | 4.0 |
 | `ReceiptSessionRepository` (DynamoDB Enhanced Client) + `ReceiptSessionService` | 3.0 |
 | `SplitCalculationService` — equal + by-item algorithms, rounding-remainder handling | 5.0 |
-| `SplitwiseClient` (HTTP, multipart/form-data) + `SplitwiseRequestBuilder` + `SplitwiseService` | 5.0 |
-| CORS config + Secrets Manager wiring for the Splitwise API key | 1.5 |
+| `SplitSummaryService` — per-person breakdown + shareable text formatting | 1.5 |
+| CORS config | 0.5 |
 | Deploy to Beta, manual smoke test, debug | 3.0 |
-| **Subtotal** | **25.5** |
+| **Subtotal** | **20.5** |
 
 ### Phase 3 — `frontend/` (React + TypeScript)
 
@@ -56,13 +55,13 @@
 | Vite + React + TS scaffold, routing, API client | 2.0 |
 | `ReceiptReviewSection` (editable items) | 3.0 |
 | `TipEntrySection` (presets + manual override) | 1.5 |
-| `ParticipantsSection` (`GroupSelector` + `FriendMultiSelect`, live Splitwise data) | 3.0 |
+| `ParticipantsSection` (free-text participant name entry, add/remove) | 1.5 |
 | `SplitModeToggle` + `ItemAssignmentGrid` (tap-to-assign UI) | 5.0 |
 | `SplitSummary` (client-side preview mirroring the backend's split algorithm) | 3.0 |
-| `ConfirmButton` + `ConfirmationModal` + submit flow | 2.0 |
+| `ConfirmButton` + `ConfirmationModal` + finalize flow (shows shareable summary + copy action) | 2.5 |
 | Mobile-responsive styling pass (used inside an in-Shortcut web view on a phone) | 3.0 |
 | Deploy to Beta, manual smoke test, debug | 3.0 |
-| **Subtotal** | **25.5** |
+| **Subtotal** | **24.5** |
 
 ### Phase 4 — iOS Shortcut & end-to-end integration
 
@@ -78,13 +77,11 @@
 | Task | Hours |
 |---|---|
 | Unit tests: `SplitCalculationService` edge cases (single item, uneven sharers, rounding remainder, zero tip) | 3.0 |
-| Unit tests: `SplitwiseRequestBuilder` | 1.5 |
+| Unit tests: `SplitSummaryService` (breakdown correctness, text formatting) | 1.0 |
 | `integ-tests/` package scaffold (JUnit + REST Assured) | 1.5 |
-| `ParseReceiptIntegTest`, `SessionIntegTest`, `FriendsIntegTest` | 3.0 |
-| `/internal/submit-expense-dry-run` endpoint + `SubmitExpenseDryRunIntegTest` | 2.5 |
+| `ParseReceiptIntegTest`, `SessionIntegTest`, `FinalizeSplitIntegTest` | 3.0 |
 | Wire IntegTests into CDK Pipelines' Beta-stage `addPost()`; verify a failure actually blocks Prod | 2.0 |
-| Occasional manual live `create_expense` smoke test against the Splitwise dummy account | 0.5 |
-| **Subtotal** | **14.0** |
+| **Subtotal** | **10.5** |
 
 ### Phase 6 — Launch
 
@@ -102,36 +99,35 @@
 
 | | Hours |
 |---|---|
-| Phase 0 — Setup & prerequisites | 4.0 |
+| Phase 0 — Setup & prerequisites | 3.5 |
 | Phase 1 — `infra/` | 15.5 |
-| Phase 2 — `api/` | 25.5 |
-| Phase 3 — `frontend/` | 25.5 |
+| Phase 2 — `api/` | 20.5 |
+| Phase 3 — `frontend/` | 24.5 |
 | Phase 4 — iOS Shortcut & e2e integration | 11.0 |
-| Phase 5 — Automated testing | 14.0 |
+| Phase 5 — Automated testing | 10.5 |
 | Phase 6 — Launch | 6.0 |
-| **Base total** | **101.5** |
-| Contingency (~15%, for first-time AWS wiring and third-party-API surprises) | ~15.5 |
-| **Estimated total** | **~117 hours** |
+| **Base total** | **91.5** |
+| Contingency (~15%, for first-time AWS wiring and third-party-API surprises) | ~14.0 |
+| **Estimated total** | **~106 hours** |
 
 ## Calendar-time conversion
 
 | Pace | Hours/day | Elapsed time |
 |---|---|---|
-| Focused (treated like a short full-time sprint) | ~6 | ~20 working days (~4 weeks) |
-| Part-time (evenings/weekends around other commitments) | ~4 | ~30 sessions (spread over ~6-8 weeks depending on how many days/week are worked) |
+| Focused (treated like a short full-time sprint) | ~6 | ~18 working days (~3.5 weeks) |
+| Part-time (evenings/weekends around other commitments) | ~4 | ~27 sessions (spread over ~5-7 weeks depending on how many days/week are worked) |
 
 ## Sequencing
 
-Phases 1-3 (`infra/`, `api/`, `frontend/`) can start in parallel once Phase 0 is done, since each has its own skeleton milestone independent of the others — but Phase 4 (real end-to-end testing) can't meaningfully start until all three have at least a working Beta deployment. Phase 5's `integ-tests/` depends on the `/internal/submit-expense-dry-run` endpoint existing in `api/`, so it naturally follows Phase 2. Phase 6 depends on everything before it being green.
+Phases 1-3 (`infra/`, `api/`, `frontend/`) can start in parallel once Phase 0 is done, since each has its own skeleton milestone independent of the others — but Phase 4 (real end-to-end testing) can't meaningfully start until all three have at least a working Beta deployment. Phase 5's `integ-tests/` depends on the `POST /finalize-split` endpoint existing in `api/`, so it naturally follows Phase 2. Phase 6 depends on everything before it being green.
 
 ## Risks that could move this estimate
 
 - **CodeStarConnections' GitHub OAuth handshake is a manual, human-in-the-loop step** — it can't be scripted or automated, and past attempts on this project have had the pipeline sit blocked on it. Budget calendar slack around Phase 1, not just developer hours.
 - **First-time AWS resource wiring has caused real issues before** on this exact project (a DynamoDB `ServicePrincipal` grant error, `ts-node`/TypeScript version incompatibilities) — Phase 1's debugging buffer exists because of that history, not speculation.
 - **Textract's real-world accuracy on messy/handwritten receipts is unverified** until Phase 4's real-receipt testing — if accuracy is worse than expected, Phase 4's bug-fixing line item absorbs some of that, but a significant shortfall could mean revisiting `ReceiptParsingService`'s mapping logic beyond what's budgeted.
-- **Splitwise's undocumented `multipart/form-data` receipt-attachment behavior** is confirmed to work from a community GitHub thread, not Splitwise's own docs — if it behaves unexpectedly in practice, `SplitwiseRequestBuilder`/`SplitwiseHttpClient` may need more iteration than estimated.
-- **Splitwise's ~3-4/day free-tier expense-creation cap** doesn't affect the automated pipeline (the integ tests stub it), but it does throttle how much *manual* live end-to-end testing can happen in Phase 4 on any given day.
+- **If a comparable third-party expense-tracking API becomes available later**, wiring direct submission back in (client, request builder, auth) would need its own LOE addendum — this estimate assumes manual copy/paste handoff for the whole first release.
 
 ## Explicitly not estimated (out of scope)
 
-Per the BRD's non-goals and the HLD/LLD's deferred items: the `lambdas/` package, any authentication/authorization layer, percentage-split mode, retry/queue logic for Splitwise's rate limit, permanent history/reporting, and bank/statement reconciliation. Any of these becoming in-scope would need its own LOE addendum.
+Per the BRD's non-goals and the HLD/LLD's deferred items: the `lambdas/` package, any authentication/authorization layer, percentage-split mode, automatic posting to Splitwise or any other third-party service, permanent history/reporting, and bank/statement reconciliation. Any of these becoming in-scope would need its own LOE addendum.

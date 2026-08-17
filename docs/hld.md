@@ -23,10 +23,6 @@ Translate the BRD's requirements into a system architecture: what components exi
  │  CloudFront)    │ ───────────────────▶ API (above) ──────▶│  S3 (receipt │
  └─────────────────┘                                          │  images)     │
                                                                 └─────────────┘
-                                            API (above) ───────▶ ┌─────────────┐
-                                                                  │ Splitwise API│
-                                                                  │ (external)   │
-                                                                  └─────────────┘
 ```
 
 Supporting, not in the request path: a CDK Pipelines-driven CodePipeline (`infra/`) builds and deploys all of the above; an `integ-tests/` suite gates promotion from Beta to Prod.
@@ -34,12 +30,11 @@ Supporting, not in the request path: a CDK Pipelines-driven CodePipeline (`infra
 ## Components and responsibilities
 
 - **iOS Shortcut** — the capture trigger. Converts HEIC to JPEG, POSTs the photo to the API, and opens the API's returned URL in an in-Shortcut web view.
-- **Frontend (React SPA, S3 + CloudFront)** — the split-assignment UI: loads the parsed receipt, lets the user review/correct it, enter a tip, choose participants, choose a split mode, and confirm.
-- **API (Java/Spring Boot, ECS Fargate)** — the only component with AWS/Splitwise credentials. Orchestrates the Textract call, the Splitwise calls, DynamoDB/S3 access, and the split computation itself.
+- **Frontend (React SPA, S3 + CloudFront)** — the split-assignment UI: loads the parsed receipt, lets the user review/correct it, enter a tip, enter participants, choose a split mode, confirm, and copy the resulting shareable summary.
+- **API (Java/Spring Boot, ECS Fargate)** — the only component with AWS credentials. Orchestrates the Textract call, DynamoDB/S3 access, and the split computation and summary generation.
 - **AWS Textract** — receipt OCR and structured field/line-item extraction.
 - **DynamoDB** — short-lived session state (the in-progress receipt: parsed fields, corrections, eventual split, outcome).
 - **S3** — receipt image storage, referenced by key from the DynamoDB session record.
-- **Splitwise API (external)** — the actual system of record for the resulting expense; everything upstream exists to build one correct request to this API.
 - **CDK Pipeline (`infra/`)** — builds and deploys every other component.
 - **`integ-tests/`** — runs against live Beta after each deploy; a pass is what promotes a build to Prod.
 
@@ -48,12 +43,11 @@ Supporting, not in the request path: a CDK Pipelines-driven CodePipeline (`infra
 1. Shortcut → `POST /parse-receipt` (image) → API.
 2. API stores the image in S3, calls Textract to extract fields, writes a new session record to DynamoDB (status: parsed), and returns the parsed fields plus a split-page URL to the Shortcut.
 3. Shortcut opens that URL in its web view; the frontend loads and fetches the session's current state from the API.
-4. Frontend → `GET /friends` → API → Splitwise (`get_friends`, `get_groups`) → back to the frontend, to populate the "who was there" step.
-5. The user edits items, tip, participants, and split mode entirely client-side — nothing is persisted mid-edit.
-6. Frontend → `POST /submit-expense` (session ID + finalized split) → API.
-7. API reads the session from DynamoDB, reads the image from S3, calls Splitwise's `create_expense` with the image attached and the finalized per-person amounts, and updates the session's status.
-8. API → Frontend: success/failure and the resulting Splitwise expense ID.
-9. Frontend shows a plain confirmation; the Shortcut can return to a clean state.
+4. The user edits items, tip, participants (entered as free-text names), and split mode entirely client-side — nothing is persisted mid-edit.
+5. Frontend → `POST /finalize-split` (session ID + finalized split) → API.
+6. API reads the session from DynamoDB, computes the per-person breakdown and a formatted shareable text summary, and updates the session's status.
+7. API → Frontend: the per-person breakdown and the shareable summary text.
+8. Frontend shows the summary with a copy action; the Shortcut can return to a clean state.
 
 ## Technology stack
 
@@ -68,7 +62,6 @@ Supporting, not in the request path: a CDK Pipelines-driven CodePipeline (`infra
 | Database | DynamoDB | Serverless, on-demand billing, native TTL fits inherently short-lived session data |
 | Object storage | S3 | DynamoDB's 400KB item limit is smaller than a typical phone photo |
 | Receipt parsing | AWS Textract (`AnalyzeExpense`) | Purpose-built for receipts/invoices; keeps the stack fully AWS-native with no separate vendor account |
-| Third-party integration | Splitwise REST API v3.0 | The product of record for the actual expense/split |
 
 ## API surface
 
@@ -76,13 +69,11 @@ High-level only — full request/response contracts are in the LLD.
 
 - `POST /parse-receipt` — submit a photo, get back parsed fields and a split-page link.
 - `GET /session/{sessionId}` — the frontend's initial load, to fetch the current session state.
-- `GET /friends` — Splitwise friends and groups, for the "who was there" step.
-- `POST /submit-expense` — finalize and post the expense to Splitwise.
+- `POST /finalize-split` — compute the final split and return a shareable summary.
 
 ## Security
 
 - No public S3 access. Receipt images are only ever read by the API, using its own IAM role — never served directly to a client.
-- Splitwise's API key lives in AWS Secrets Manager and is injected into the ECS task at runtime — never committed, never a plain environment variable, never returned to the frontend.
 - AWS-service access (DynamoDB, S3, Textract) is via the ECS task's scoped IAM role, not static access keys.
 - HTTPS everywhere: CloudFront terminates TLS for the frontend, the ALB terminates TLS for the API.
 - CORS on the API is restricted to the frontend's CloudFront domain.
@@ -94,7 +85,6 @@ High-level only — full request/response contracts are in the LLD.
 - The API is stateless — all session state lives in DynamoDB, so any running task can serve any request; ECS could scale task count if load ever justified it, though P0 doesn't need it.
 - DynamoDB's TTL attribute auto-expires session records; an S3 lifecycle rule independently backstops image cleanup.
 - Beta and Prod are fully separate resource sets (not a shared environment with a feature flag), and promotion from Beta to Prod is gated by an automated integration-test suite — this limits the blast radius of a bad deploy reaching real usage.
-- Known external constraint: Splitwise's free tier caps expense creation at roughly 3-4/day. The system doesn't build retry/queue logic around this for the first release (an explicit BRD non-goal); the CI/CD pipeline's own integration tests are designed to avoid tripping this limit themselves (see LLD).
 
 ## Environments & delivery
 

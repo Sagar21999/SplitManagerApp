@@ -27,7 +27,6 @@ public class ReceiptSession {
   private BigDecimal tip;
   private BigDecimal total;
   private FinalizedSplit finalizedSplit;
-  private String splitwiseExpenseId;
   private String failureReason;
 
   @DynamoDbPartitionKey
