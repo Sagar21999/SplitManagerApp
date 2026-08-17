@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as codebuild from 'aws-cdk-lib/aws-codebuild';
 import * as codepipeline from 'aws-cdk-lib/aws-codepipeline';
 import * as pipelines from 'aws-cdk-lib/pipelines';
 import { Construct } from 'constructs';
@@ -26,6 +27,11 @@ export class PipelineStack extends cdk.Stack {
       new pipelines.CodeBuildStep('IntegTests', {
         commands: ['cd integ-tests', 'mvn test -Dbeta.api.url=$BETA_API_URL'],
         envFromCfnOutputs: { BETA_API_URL: betaAppStage.apiUrlOutput },
+        // Matches api/'s Java 21 target — without this, the CodeBuild image's default
+        // JDK is too old and `mvn test` fails with "invalid target release: 21".
+        partialBuildSpec: codebuild.BuildSpec.fromObject({
+          phases: { install: { 'runtime-versions': { java: 'corretto21' } } },
+        }),
       }),
     );
 
