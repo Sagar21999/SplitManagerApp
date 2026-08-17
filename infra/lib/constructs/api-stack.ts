@@ -53,9 +53,13 @@ export class ApiStack extends cdk.Stack {
       }),
     );
 
+    // 256/512 was CPU-starving Spring Boot's startup (~50-60s to first response) badly
+    // enough that ALB health checks occasionally timed out even after the app was up,
+    // repeatedly tripping the unhealthy threshold and cycling the task. Bumped to give
+    // the JVM enough headroom to start and serve health checks reliably.
     const taskDefinition = new ecs.FargateTaskDefinition(this, 'ApiTaskDefinition', {
-      cpu: 256,
-      memoryLimitMiB: 512,
+      cpu: 512,
+      memoryLimitMiB: 1024,
       taskRole: this.taskRole,
     });
 
@@ -89,9 +93,12 @@ export class ApiStack extends cdk.Stack {
       desiredCount: 1,
       assignPublicIp: true,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
-      // Spring Boot + eager AWS SDK client init takes ~60s to come up; without this,
-      // the ALB marks the task unhealthy before it's ready and ECS cycles it forever.
-      healthCheckGracePeriod: cdk.Duration.seconds(120),
+      // Spring Boot + eager AWS SDK client init takes ~60s to come up. The target group's
+      // healthyThresholdCount below needs 2 consecutive passes (30s) once the app responds,
+      // so 180s leaves comfortable margin over the ~90s worst case — without this, the ALB
+      // marks the task unhealthy before it's ready (or on any transient startup blip after
+      // grace period ends) and ECS cycles it forever.
+      healthCheckGracePeriod: cdk.Duration.seconds(180),
     });
 
     this.loadBalancer = new elbv2.ApplicationLoadBalancer(this, 'ApiLoadBalancer', {
@@ -104,7 +111,13 @@ export class ApiStack extends cdk.Stack {
     listener.addTargets('ApiTargets', {
       port: containerPort,
       targets: [this.service],
-      healthCheck: { path: hasApiDockerfile ? '/actuator/health' : '/' },
+      healthCheck: {
+        path: hasApiDockerfile ? '/actuator/health' : '/',
+        interval: cdk.Duration.seconds(15),
+        timeout: cdk.Duration.seconds(10),
+        healthyThresholdCount: 2,
+        unhealthyThresholdCount: 3,
+      },
     });
   }
 }
