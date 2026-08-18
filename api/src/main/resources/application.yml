@@ -1,6 +1,13 @@
 server:
   port: 8080
 
+spring:
+  servlet:
+    multipart:
+      # Default (1MB) is too small for a real phone photo of a receipt.
+      max-file-size: 10MB
+      max-request-size: 10MB
+
 management:
   endpoints:
     web:

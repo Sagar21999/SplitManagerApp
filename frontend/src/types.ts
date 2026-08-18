@@ -6,6 +6,16 @@ export interface ReceiptItem {
 
 export type SessionStatus = 'PARSING' | 'PARSED' | 'PARSE_FAILED' | 'FINALIZED';
 
+export interface ParseReceiptResponse {
+  sessionId: string;
+  merchant: string | null;
+  items: ReceiptItem[];
+  tax: number;
+  tip: number | null;
+  total: number;
+  url: string;
+}
+
 export interface SessionResponse {
   sessionId: string;
   status: SessionStatus;

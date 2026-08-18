@@ -33,39 +33,42 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [~] CORS config (restricted to CloudFront domain) — mechanism in place via `FRONTEND_ORIGIN` env var, still defaults to `*` until Phase 3 wires the real CloudFront domain into `ApiStack`
 - [x] Implement `/parse-receipt`, `/session/{sessionId}`, `/finalize-split` per LLD §4 contracts (`/friends` and `/internal/submit-expense-dry-run` removed along with the Splitwise integration)
 - [x] `GlobalExceptionHandler`, `SessionNotFoundException`
-- [ ] Deploy to Beta, manual smoke test, debug
+- [x] Deploy to Beta, manual smoke test, debug — verified live: `/actuator/health`, `GET /session/{id}`, `POST /finalize-split` all confirmed working against deployed Beta
 
 ## Phase 3 — `frontend/` (React + TypeScript)
 
-- [ ] Vite + React + TS scaffold, single route `/split/:sessionId`, `apiClient.ts`
-- [ ] `useReceiptSession` hook (calls `GET /session/{sessionId}` on mount)
-- [ ] `ReceiptReviewSection` (`ReceiptItemRow`, `AddItemButton`) — editable name/price, add/remove items
-- [ ] `TipEntrySection` (18/20/25% presets + manual numeric input)
-- [ ] `ParticipantsSection` (`ParticipantNameEntry`) — free-text add/remove participant names, no external contacts lookup
-- [ ] `SplitModeToggle` (Equal | By Item) + `ItemAssignmentGrid`/`ItemAssignmentRow` (tap-to-assign, By Item only)
-- [ ] `SplitSummary` — client-side preview mirroring `SplitCalculationService` logic (LLD §5), read-only
-- [ ] `ConfirmButton` + `ConfirmationModal` + finalize flow (`POST /finalize-split`), showing the shareable summary text with a copy action
-- [ ] Mobile-responsive styling pass (in-Shortcut web view on a phone)
-- [ ] Deploy to Beta, manual smoke test, debug
+- [x] Vite + React + TS scaffold, single route `/split/:sessionId`, `apiClient.ts`
+- [x] `useReceiptSession` hook (calls `GET /session/{sessionId}` on mount)
+- [x] `ReceiptReviewSection` (`ReceiptItemRow`, `AddItemButton`) — editable name/price, add/remove items
+- [x] `TipEntrySection` (18/20/25% presets + manual numeric input)
+- [x] `ParticipantsSection` (`ParticipantNameEntry`) — free-text add/remove participant names, no external contacts lookup
+- [x] `SplitModeToggle` (Equal | By Item) + `ItemAssignmentGrid`/`ItemAssignmentRow` (tap-to-assign, By Item only)
+- [x] `SplitSummary` — client-side preview mirroring `SplitCalculationService` logic (LLD §5), read-only
+- [x] `ConfirmButton` + `ConfirmationModal` + finalize flow (`POST /finalize-split`), showing the shareable summary text with a copy action
+- [x] Mobile-responsive styling pass (mobile web view — in-Shortcut framing dropped along with the Shortcut itself)
+- [x] Deploy to Beta, manual smoke test, debug — build/synth verified; full click-through pending the user's own browser test alongside a planned UI change
 
-## Phase 4 — iOS Shortcut & end-to-end integration
+## Phase 4 — Web upload & end-to-end integration
 
-- [ ] Build Shortcut: share-sheet trigger, HEIC→JPEG conversion, `POST /parse-receipt`, open returned URL in web view
-- [ ] End-to-end manual testing against Beta with real receipts (multiple iterations)
+*Update: replaced the iOS Shortcut with a simple web upload page — no native app, no cost, no platform dependency. Reuses the same React app instead of a separate capture mechanism.*
+
+- [x] `UploadPage` (`/upload`, also served at `/`): `<input type="file" accept="image/*" capture="environment">` (opens camera/library on mobile), `POST /parse-receipt` via `apiClient.parseReceipt`, navigates to `/split/{sessionId}` on success
+- [x] Bumped API's multipart limits (`spring.servlet.multipart.max-file-size`/`max-request-size` to 10MB) — the Spring Boot default (1MB) would reject real phone photos
+- [ ] End-to-end manual testing against Beta with real receipts (multiple iterations) — pending, alongside the user's planned UI change
 - [ ] Bug-fixing pass across API/frontend from e2e findings
 
 ## Phase 5 — Automated testing
 
-- [ ] Unit tests: `SplitCalculationService` edge cases (single item, uneven sharers, rounding remainder, zero tip)
-- [ ] Unit tests: `SplitSummaryService` (breakdown correctness, text formatting)
-- [ ] `integ-tests/` package scaffold (JUnit + REST Assured)
-- [ ] `ParseReceiptIntegTest`, `SessionIntegTest`, `FinalizeSplitIntegTest`
-- [ ] Wire `IntegTests` `CodeBuildStep` into `betaStage.addPost(...)`; verify a failure actually blocks Prod promotion
+- [x] Unit tests: `SplitCalculationService` edge cases (single item, uneven sharers, rounding remainder, zero tip) — `api/src/test/java/.../SplitCalculationServiceTest.java`
+- [x] Unit tests: `SplitSummaryService` (breakdown correctness, text formatting) — `api/src/test/java/.../SplitSummaryServiceTest.java`
+- [x] `integ-tests/` package scaffold (JUnit + REST Assured)
+- [x] `ParseReceiptIntegTest`, `SessionIntegTest`, `FinalizeSplitIntegTest` — chain off a bundled synthetic sample receipt image (`src/test/resources/sample-receipt.jpg`); not yet run against live Beta (costs a real Textract call per run — next actual pipeline deploy will exercise them)
+- [x] Wire `IntegTests` `CodeBuildStep` into `betaStage.addPost(...)`; verify a failure actually blocks Prod promotion — already wired, and proven true this session (the missing-pom and wrong-Java-version failures both correctly blocked Prod until fixed)
 
 ## Phase 6 — Launch
 
 - [ ] First automatic promotion to Prod; verify deployed stack
-- [ ] Point the iOS Shortcut at the Prod API URL; final real-world test
+- [ ] Point the upload page at the Prod API URL; final real-world test
 - [ ] Verify DynamoDB TTL cleanup and S3 lifecycle rule actually reclaim storage
 - [ ] CloudWatch logs/alarms sanity check
 - [ ] Rotate the GitHub PAT shared earlier in the project; confirm no secrets in git history
