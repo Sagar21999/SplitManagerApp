@@ -293,3 +293,19 @@ input[type='number'] {
   gap: 8px;
   margin-top: 12px;
 }
+
+.sign-out {
+  display: block;
+  margin: 0 0 1rem auto;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.sign-out:hover {
+  opacity: 1;
+}

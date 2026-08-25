@@ -31,6 +31,12 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
+    <!-- Validates the Cognito-issued bearer token on every request: fetches the pool's
+         JWKS from the issuer and checks signature, issuer, and expiry. See SecurityConfig. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>software.amazon.awssdk</groupId>

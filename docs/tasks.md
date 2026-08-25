@@ -18,14 +18,17 @@
 
 ## Phase 1 — Auth *(blocking; nothing else deploys until this is done)*
 
-- [ ] `AuthStack`: Cognito user pool (self-signup off), public app client with PKCE, hosted-UI domain
-- [ ] Wire `AuthStack` through `AppStage` into `ApiStack` (env vars) and `FrontendStack` (build config)
-- [ ] Provision the single user account manually in Beta
-- [ ] `api/`: add `spring-boot-starter-oauth2-resource-server`, `SecurityConfig`, audience validator; `/actuator/health` stays public
-- [ ] `api/`: resolve `FRONTEND_ORIGIN` to the real CloudFront domain — the `*` default breaks credentialed requests
-- [ ] `frontend/`: `AuthProvider`, `RequireAuth`, login redirect, `/auth/callback` code exchange, bearer token in `apiClient`
-- [ ] Token storage: access token in memory, refresh token in `sessionStorage`, nothing in `localStorage`
+- [x] `AuthStack`: Cognito user pool (self-signup off), hosted-UI domain
+- [x] Wire `AuthStack` through `AppStage` into `ApiStack` (issuer env var) and `FrontendStack`
+- [x] **Serve the API over HTTPS via a `/api/*` CloudFront behavior** — the ALB is plain HTTP, so an HTTPS page could not call it at all (mixed content). Also makes the SPA and API same-origin.
+- [x] `api/`: `server.servlet.context-path=/api` to match the forwarded prefix; ALB health check follows to `/api/actuator/health`
+- [x] `api/`: `spring-boot-starter-oauth2-resource-server`, `SecurityConfig`, fail-closed `JwtDecoder`; `/actuator/health` stays public
+- [x] `api/`: `WebConfig` CORS no longer defaults to `*`; empty means same-origin only
+- [x] `frontend/`: `AuthProvider`, `RequireAuth`, PKCE login, `/auth/callback` code exchange, bearer token in `apiClient`
+- [x] Token storage: access token in memory, refresh token in `sessionStorage`, nothing in `localStorage`
+- [ ] Provision the single user account manually in the Beta pool *(needs AWS console)*
 - [ ] **Verify on Beta: an unauthenticated request returns 401** (FR25 — repeat this check every deploy)
+- [ ] Verify on Beta: hosted-UI login lands back in the app with a working session
 
 ## Phase 2 — Persistent ledger (backend)
 

@@ -1,13 +1,25 @@
-interface AppConfig {
+export interface AuthConfig {
+  region: string;
+  userPoolId: string;
+  userPoolClientId: string;
+  /** Cognito hosted-UI base URL, e.g. https://split-manager-beta-123.auth.us-east-1.amazoncognito.com */
+  hostedUiDomain: string;
+  redirectUri: string;
+  logoutUri: string;
+}
+
+export interface AppConfig {
+  /** Same-origin path prefix — the API is proxied at /api/* by CloudFront. */
   apiUrl: string;
+  auth: AuthConfig;
 }
 
 let cached: Promise<AppConfig> | null = null;
 
 /**
- * The API's ALB URL isn't known until deploy time, so it can't be baked into the JS
- * bundle at build time — it's written to config.json by the CDK BucketDeployment
- * alongside the built assets, and fetched once here at runtime instead.
+ * The API path and the Cognito pool/client IDs aren't known until deploy time, so they
+ * can't be baked into the JS bundle at build time — they're written to config.json by the
+ * CDK BucketDeployment alongside the built assets, and fetched once here at runtime.
  */
 export function getConfig(): Promise<AppConfig> {
   if (!cached) {

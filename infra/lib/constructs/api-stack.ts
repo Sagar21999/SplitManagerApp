@@ -7,6 +7,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -15,6 +16,7 @@ export interface ApiStackProps extends cdk.StackProps {
   envName: string;
   table: dynamodb.ITable;
   imagesBucket: s3.IBucket;
+  userPool: cognito.IUserPool;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -80,6 +82,10 @@ export class ApiStack extends cdk.Stack {
         ENV_NAME: props.envName,
         TABLE_NAME: props.table.tableName,
         IMAGES_BUCKET_NAME: props.imagesBucket.bucketName,
+        // Spring Security fetches this pool's JWKS from {issuer}/.well-known/jwks.json
+        // and validates every incoming bearer token's signature, issuer, and expiry
+        // against it. No shared secret is involved.
+        COGNITO_ISSUER_URI: `https://cognito-idp.${this.region}.amazonaws.com/${props.userPool.userPoolId}`,
       },
       logging: ecs.LogDrivers.awsLogs({
         streamPrefix: 'api',
@@ -112,7 +118,10 @@ export class ApiStack extends cdk.Stack {
       port: containerPort,
       targets: [this.service],
       healthCheck: {
-        path: hasApiDockerfile ? '/actuator/health' : '/',
+        // Matches server.servlet.context-path=/api in application.yml. CloudFront
+        // forwards the /api/* prefix to this origin rather than stripping it, so the
+        // app serves everything under /api — including actuator.
+        path: hasApiDockerfile ? '/api/actuator/health' : '/',
         interval: cdk.Duration.seconds(15),
         timeout: cdk.Duration.seconds(10),
         healthyThresholdCount: 2,
