@@ -49,7 +49,7 @@ Translate the BRD's requirements into a system architecture: what components exi
    └──────────────────────────────┘
 ```
 
-Supporting, not in the request path: a CDK Pipelines-driven CodePipeline (`infra/`) builds and deploys all of the above; an `integ-tests/` suite gates promotion from Beta to Prod.
+Supporting, not in the request path: a CDK Pipelines-driven CodePipeline (`infra/`) builds and deploys all of the above to Beta and then Prod.
 
 ## Components and responsibilities
 
@@ -61,7 +61,6 @@ Supporting, not in the request path: a CDK Pipelines-driven CodePipeline (`infra
 - **DynamoDB** — the permanent ledger: transactions, the people directory, and statement import batches. No TTL on transaction data.
 - **S3** — receipt images (retained, referenced by key from the transaction record) and uploaded statement files (deleted after extraction, per BRD FR20).
 - **CDK Pipeline (`infra/`)** — builds and deploys every other component.
-- **`integ-tests/`** — runs against live Beta after each deploy; a pass is what promotes a build to Prod.
 
 ## Data flow
 
@@ -153,7 +152,7 @@ High-level only — full request/response contracts are in the LLD. Every endpoi
 - The API is stateless — all state lives in DynamoDB, so any running task can serve any request.
 - **Balances are computed on read** by aggregating open transactions rather than maintained as running counters. This avoids a class of consistency bugs, and at personal volumes the query cost is negligible. If the ledger ever grew large enough for this to matter, a materialized per-person balance record updated on status change is the migration path.
 - Receipt images are retained; statement files are purged after extraction via an S3 lifecycle rule as a backstop to the API's explicit delete.
-- Beta and Prod are fully separate resource sets, and promotion is gated by the automated integration-test suite, limiting the blast radius of a bad deploy.
+- Beta and Prod are fully separate resource sets. **Beta is the working environment**: all verification happens there, against real receipts and real statements. Prod exists and receives promotions, but is not the focus — a broken Prod is tolerable, a broken Beta is not.
 - **Nothing in the system depends on an external third party at request time.** Splitwise is a manual, downstream, non-blocking destination, so no outage or API change there can block a transaction.
 
 ## Architectural changes from v1
@@ -177,4 +176,6 @@ High-level only — full request/response contracts are in the LLD. Every endpoi
 
 ## Environments & delivery
 
-One AWS account, Beta and Prod distinguished by resource naming rather than account isolation. One monorepo, one CodePipeline: parallel per-package builds, automatic Beta deploy, an automated integration-test gate, then automatic Prod promotion with no manual approval step. Each environment has its own Cognito user pool.
+One AWS account, Beta and Prod distinguished by resource naming rather than account isolation. One monorepo, one CodePipeline: parallel per-package builds, automatic Beta deploy, then automatic Prod promotion with no manual approval step. Each environment has its own Cognito user pool.
+
+**There is no automated integration-test gate.** The suite was removed to keep iteration fast on a solo personal project; unit tests plus manual verification against Beta are the quality bar. This means Prod promotion is ungated — an accepted risk, since Beta is the environment that actually matters and Prod carries no other users. Reintroducing a gate is a known, deliberate follow-up if Prod ever becomes load-bearing.

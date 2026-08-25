@@ -1,13 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
-import * as codebuild from 'aws-cdk-lib/aws-codebuild';
 import * as codepipeline from 'aws-cdk-lib/aws-codepipeline';
 import * as pipelines from 'aws-cdk-lib/pipelines';
 import { Construct } from 'constructs';
 import { AppStage } from './app-stage';
 
 // Set once, after completing the CodeStarConnections GitHub OAuth handshake in
-// the AWS Console (CodePipeline > Settings > Connections) — see docs/loe.md
-// Phase 1. Not a secret (an ARN grants nothing without the AWS account's own
+// the AWS Console (CodePipeline > Settings > Connections).
+// Not a secret (an ARN grants nothing without the AWS account's own
 // IAM permissions), so it's safe to commit rather than pass as CLI context —
 // CodePipeline's own self-mutating synth step has no way to supply `-c` flags.
 const GITHUB_CONNECTION_ARN =
@@ -21,21 +20,12 @@ export class PipelineStack extends cdk.Stack {
 
     const pipeline = this.buildPipeline(GITHUB_CONNECTION_ARN);
 
-    const betaAppStage = new AppStage(this, 'Beta', { envName: 'beta' });
-    const betaStage = pipeline.addStage(betaAppStage);
-    betaStage.addPost(
-      new pipelines.CodeBuildStep('IntegTests', {
-        commands: ['cd integ-tests', 'mvn test -Dbeta.api.url=$BETA_API_URL'],
-        envFromCfnOutputs: { BETA_API_URL: betaAppStage.apiUrlOutput },
-        // Matches api/'s Java 21 target — without this, the CodeBuild image's default
-        // JDK is too old and `mvn test` fails with "invalid target release: 21".
-        partialBuildSpec: codebuild.BuildSpec.fromObject({
-          phases: { install: { 'runtime-versions': { java: 'corretto21' } } },
-        }),
-      }),
-    );
-
-    // No manual approval — promotion is automatic once IntegTests passes.
+    // Beta is the working environment — all verification happens there, manually
+    // (see docs/lld.md §11). The IntegTests gate that used to sit here was removed
+    // along with the integ-tests/ package, so Prod promotion is now ungated: an
+    // accepted risk while Prod carries no users. Reinstate the gate before Prod
+    // becomes load-bearing.
+    pipeline.addStage(new AppStage(this, 'Beta', { envName: 'beta' }));
     pipeline.addStage(new AppStage(this, 'Prod', { envName: 'prod' }));
   }
 

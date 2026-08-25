@@ -12,7 +12,6 @@ split-manager/
   frontend/       # React + TypeScript SPA
   api/            # Java / Spring Boot service
   lambdas/        # Java, reserved, still not built
-  integ-tests/    # Java, runs post-Beta-deploy, gates Prod promotion
   docs/
   README.md
 ```
@@ -78,7 +77,7 @@ Task role grants, over v1: adds `dynamodb:Query` on the table's index ARNs, `s3:
 
 **`FrontendStack`** — unchanged in shape; its build-time config now also carries the Cognito pool/client IDs and hosted-UI domain.
 
-**Pipeline wiring** — unchanged from v1: `betaStage.addPost(new CodeBuildStep("IntegTests", ...))`, automatic Prod promotion on pass. The integ-test step gains a Cognito test-user credential from Secrets Manager (§11).
+**Pipeline wiring** — the `PipelineStack`, both `AppStage` instances (Beta and Prod), and automatic Prod promotion are all retained from v1. The one removal is the `betaStage.addPost(new CodeBuildStep("IntegTests", ...))` gate, which goes away with the `integ-tests/` package (§11). Prod now promotes automatically as soon as Beta deploys.
 
 ## 3. `api/` — Java / Spring Boot / Maven
 
@@ -716,33 +715,72 @@ balances:     { get }
 
 Statement parse failures are **partial-success by design**: a batch that extracts 40 of 45 rows returns `READY` with 40 candidates and a `failureReason` naming the 5 dropped rows, rather than failing the whole import.
 
-## 11. `integ-tests/`
+## 11. Testing
 
-**Package:** `com.splitmanager.integtests`
+There is **no `integ-tests/` package and no automated integration-test gate.** The v1 suite and its `CodeBuildStep` are deleted. The quality bar for v2 is unit tests plus manual verification against Beta.
 
-Every test now authenticates first: a dedicated Beta-only Cognito test user, credentials in Secrets Manager, `AuthHelper` performs `InitiateAuth` (USER_SRP) once per run and caches the token.
+**Unit tests (`api/src/test/java/...`)** — this is where correctness is actually enforced:
 
 ```java
-class AuthIntegTest        { @Test void unauthenticatedRequestIsRejected(); }        // 401 — the FR25 guard
-class TransactionIntegTest { @Test void createFromReceiptThenFinalizeThenList(); }
-class SplitModeIntegTest   { @Test void allFiveModesSumExactlyToTotal(); }
-class StatusIntegTest      { @Test void markExternallyAddedThenSettled();
-                             @Test void illegalTransitionRejected(); }
-class PeopleIntegTest      { @Test void personSavedOnFinalizeAndReusable(); }        // FR13
-class StatementIntegTest   { @Test void csvImportProducesClassifiedCandidates(); }   // bundled sample CSV
-class DedupIntegTest       { @Test void duplicateChargeIsFlaggedNotAutoAdded(); }    // FR19
-class BalanceIntegTest     { @Test void balancesReflectOpenTransactionsOnly(); }
+class SplitCalculationServiceTest {   // CARRIED OVER, extended
+  // Existing v1 rounding-remainder cases stay as-is; they are the regression net
+  // for the §5 refactor. New cases per mode:
+  @Test void equalSplitDistributesRemainderPennies();
+  @Test void sharesModeWeightsProportionally();
+  @Test void percentageModeRejectsWeightsNotSummingTo100();
+  @Test void exactModeRejectsAmountsNotSummingToTotal();
+  @Test void byItemModeProratesTaxAndTipBySubtotalShare();
+  @Test void everyModeSumsExactlyToTotal();          // the §5 invariant, all five modes
+}
+
+class SplitSummaryServiceTest { /* CARRIED OVER */ }
+
+class DeduplicationServiceTest {
+  @Test void exactMerchantDateAmountMatches();
+  @Test void processorPrefixIsStrippedBeforeComparison();   // "SQ *BLUE BOTTLE" ~ "Blue Bottle"
+  @Test void chargeThreeDaysLaterStillMatches();            // the settlement-lag window
+  @Test void differentMerchantSameAmountIsWeakMatchOnly();
+}
+
+class CsvStatementParserTest {
+  @Test void parsesKnownIssuerProfile();
+  @Test void infersColumnsFromHeaderWhenProfileAbsent();
+  @Test void discardsCredits();
+}
+
+class PdfStatementParserTest {
+  // BedrockClient stubbed; asserts against recorded Textract table output.
+  // Never calls Bedrock in CI — non-deterministic and costs a model call per run.
+  @Test void normalizesRecordedTableOutput();
+  @Test void reportsDroppedRowCountOnPartialParse();
+}
+
+class StatementClassificationServiceTest {
+  @Test void userHistoryBeatsKeywordHeuristic();
+  @Test void transitKeywordsClassifyAsReimbursement();
+}
+
+class TransactionStatusTest {
+  @Test void illegalTransitionThrows();   // the §4.5 transition table
+}
 ```
 
-`AuthIntegTest` is the most important test in the suite — it is the automated proof that FR25 holds, and a regression there is the one failure mode that would expose everything.
+**Manual verification against Beta**, after each deploy — the steps that used to be automated:
 
-PDF statement parsing is **not** integ-tested against Bedrock in the pipeline: it is non-deterministic and costs a model call per run. It is covered by unit tests against recorded Textract output with a stubbed `BedrockClient`, and verified manually.
+1. An unauthenticated request to any endpoint returns 401. **Do this every deploy.** It is the one check that proves BRD FR25 holds, and a regression here exposes everything.
+2. Log in through the hosted UI; the ledger loads.
+3. Upload a real receipt; confirm parsing, then finalize a split in each of the five modes.
+4. Confirm a new participant name persists to the people directory and is offered on the next transaction.
+5. Import a sample CSV; confirm candidates are classified and duplicates flagged.
+6. Move a transaction through `OPEN → EXTERNALLY_ADDED → SETTLED`; confirm balances update.
+
+**On removing the gate:** v1 proved the gate worked — a failing integ test correctly blocked Prod twice. It is being dropped for iteration speed on a solo project, not because it was ineffective. The cost is that Prod promotes ungated. That is acceptable while Beta is the environment that matters and Prod has no users; it would need to come back before Prod became load-bearing.
 
 ## 12. Migration from the v1 build
 
 ### Carried over unchanged
 
-- All of `infra/`: `PipelineStack`, `AppStage`, `FrontendStack`, the CodePipeline wiring and integ-test gate.
+- All of `infra/`: `PipelineStack`, `AppStage`, `FrontendStack`, and the CodePipeline wiring including both the Beta and Prod stages.
 - `TextractExpenseClient` (renamed from `TextractClient`) and `ReceiptParsingService`.
 - `SplitSummaryService` — output now stored on the transaction rather than returned once.
 - Frontend `ReceiptReviewSection`, `ReceiptItemRow`, `AddItemButton`, `TipEntrySection`, `ItemAssignmentGrid`, `ItemAssignmentRow`, `SplitSummary`, `ConfirmationModal`.
@@ -765,7 +803,7 @@ PDF statement parsing is **not** integ-tested against Bedrock in the pipeline: i
 - `ExpenseController` and the v1 `POST /finalize-split` contract.
 - `SessionNotFoundException`.
 - Frontend `SplitPage` as a single-route app, `useReceiptSession`, and the v1 `UploadPage` (its file-input logic moves into `ReceiptCapturePage`).
-- v1 `ParseReceiptIntegTest`, `SessionIntegTest`, `FinalizeSplitIntegTest` — superseded by §11.
+- **The entire `integ-tests/` package** (`ParseReceiptIntegTest`, `SessionIntegTest`, `FinalizeSplitIntegTest`, the Maven project, the bundled sample image) and the `IntegTests` `CodeBuildStep` in `PipelineStack`. See §11.
 
 ### Sequencing constraint
 
