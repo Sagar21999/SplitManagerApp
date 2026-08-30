@@ -564,6 +564,111 @@ a:focus-visible {
   overflow-x: auto;
 }
 
+/* ---------- statement import ---------- */
+
+.candidate-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+
+.candidate-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 0.6rem;
+}
+
+.candidate-done {
+  opacity: 0.55;
+}
+
+.candidate-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.candidate-merchant {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.candidate-side {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-left: auto;
+}
+
+.candidate-resolved {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.candidate-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.candidate-edit input {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.candidate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.candidate-actions .add-button {
+  margin-left: auto;
+}
+
+.status-pill[data-classification='LIKELY_SPLIT'] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.status-pill[data-classification='LIKELY_REIMBURSEMENT'] {
+  color: var(--good);
+  border-color: var(--good);
+}
+
+/* A warning, not an error: it is often correct to add the charge anyway. */
+.duplicate-banner {
+  width: 100%;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+}
+
+.duplicate-banner ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.35rem 0 0;
+}
+
+.duplicate-banner li {
+  padding: 0.1rem 0;
+}
+
 @media (max-width: 480px) {
   .app-nav {
     width: 100%;

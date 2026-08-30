@@ -27,3 +27,7 @@ split-manager:
   images-bucket-name: ${IMAGES_BUCKET_NAME:split-manager-local-receipt-images}
   statements-bucket-name: ${STATEMENTS_BUCKET_NAME:split-manager-local-statements}
   frontend-origin: ${FRONTEND_ORIGIN:}
+  classification:
+    # Above this, an unrecognised statement charge is guessed to be a split. Low enough
+    # to catch a shared dinner, high enough to leave ordinary solo spending alone.
+    split-amount-threshold: ${SPLIT_AMOUNT_THRESHOLD:40.00}

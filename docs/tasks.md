@@ -14,7 +14,7 @@
 
 - [x] Delete the `integ-tests/` package
 - [x] Remove the `IntegTests` `CodeBuildStep` from `PipelineStack` (keep both Beta and Prod stages)
-- [~] Verify the pipeline still deploys Beta green after the gate removal — `cdk synth` clean locally; pending an actual pipeline run
+- [x] Verify the pipeline still deploys Beta green after the gate removal — a full run succeeded end to end on 2026-08-30
 
 ## Phase 1 — Auth *(blocking; nothing else deploys until this is done)*
 
@@ -67,15 +67,15 @@
 
 ## Phase 4 — CSV statement import + dedup
 
-- [ ] `StatementImport` / `StatementCandidate` models + repository
-- [ ] `CsvStatementParser` + `issuer-profiles.yml`; discard credits
-- [ ] `StatementClassificationService` — user history → reimbursement keywords → split heuristics
-- [ ] `DeduplicationService` — GSI2 lookup, ±3-day window, normalized fuzzy merchant match
-- [ ] `StatementIngestionService` — store, parse, classify, dedup-check, **delete the raw S3 object**
-- [ ] `StatementController` + `StatementImportPage` / `CandidateReviewPage`
-- [ ] Duplicate warnings on the receipt path too
-- [ ] Unit tests: parser, classifier, dedup edge cases
-- [ ] Verify on Beta with a real CSV export
+- [x] `StatementImport` / `StatementCandidate` models + `StatementImportRepository` (both in the `IMPORT#{id}` partition, so one Query returns the import and its rows)
+- [x] `CsvStatementParser` + `issuer-profiles.yml` (Chase, Amex, Capital One, Citi, Discover); credits discarded; header inference when no profile is given
+- [x] `StatementClassificationService` — user history → reimbursement keywords → split heuristics
+- [x] `DeduplicationService` — GSI2 lookup, ±3-day window, Levenshtein merchant match at 0.85
+- [x] `StatementIngestionService` — store, parse, classify, dedup-check, **delete the raw S3 object** (in a `finally`, so a failed parse still deletes)
+- [x] `StatementController` + `StatementImportPage` / `CandidateReviewPage` / `CandidateRow`
+- [x] Duplicate warnings on the receipt path too — `POST /transactions/from-receipt` now returns `ReceiptDraftDto`, and capture stops for confirmation instead of walking straight into the split editor
+- [x] Unit tests: parser, classifier, dedup edge cases (50 passing, up from 26)
+- [ ] Verify on Beta with a real CSV export *(user action)*
 
 ## Phase 5 — PDF statement parsing *(highest risk — prototype first)*
 
@@ -105,7 +105,8 @@
 
 ## Known issues
 
-- **Pipeline does not trigger on push.** Two pushes produced zero executions; both runs needed `aws codepipeline start-pipeline-execution`. Cause: `DetectChanges` was absent from the synthesized template because CDK only emits it when `triggerOnPush` is passed explicitly. Fixed in `pipeline-stack.ts`, but the fix only takes effect after a run whose `UpdatePipeline` applies it — so expect one more manual start. If pushes still do not trigger after that, the GitHub App installation behind the connection needs reauthorizing in the console.
+- **Pipeline trigger fix applied, not yet observed working.** `DetectChanges` was absent from the synthesized template because CDK only emits it when `triggerOnPush` is passed explicitly. Fixed in `pipeline-stack.ts`; the 2026-08-30 run self-mutated and then succeeded, so the next push is the first that should start a run on its own. If it does not, the GitHub App installation behind the connection needs reauthorizing in the console.
+- **Issuer sign conventions are unverified against real exports.** The profiles were written from documented formats, not from files. If an import comes back with everything counted as a credit (or with nothing at all), that profile's `debitsArePositive` is inverted — a one-line fix in `issuer-profiles.yml`. A profile whose columns do not match the uploaded file is dropped entirely and header inference takes over, so picking the wrong issuer degrades rather than corrupts.
 - **Orphaned v1 table.** `split-manager-beta-receipt-sessions` (and the Prod equivalent) are left behind by the rename to `-ledger` and can be deleted by hand.
 - A newly-typed person cannot be chosen as the payer until after one finalize — they have no id until the API creates them. `PayerSelector` says so rather than hiding them.
 

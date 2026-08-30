@@ -9,7 +9,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-  @ExceptionHandler({TransactionNotFoundException.class, PersonNotFoundException.class})
+  @ExceptionHandler({
+    TransactionNotFoundException.class,
+    PersonNotFoundException.class,
+    StatementImportNotFoundException.class,
+    StatementCandidateNotFoundException.class
+  })
   public ResponseEntity<Map<String, String>> handleNotFound(RuntimeException ex) {
     return status(HttpStatus.NOT_FOUND, ex.getMessage());
   }
@@ -17,6 +22,13 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(ValidationException.class)
   public ResponseEntity<Map<String, String>> handleValidation(ValidationException ex) {
     return status(HttpStatus.BAD_REQUEST, ex.getMessage());
+  }
+
+  @ExceptionHandler(StatementParseException.class)
+  public ResponseEntity<Map<String, String>> handleStatementParse(StatementParseException ex) {
+    // 422 rather than 400: the upload was a well-formed request, the file inside it just
+    // could not be understood.
+    return status(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
   }
 
   @ExceptionHandler(IllegalStatusTransitionException.class)

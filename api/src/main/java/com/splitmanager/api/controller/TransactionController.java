@@ -3,6 +3,7 @@ package com.splitmanager.api.controller;
 import com.splitmanager.api.config.CurrentUser;
 import com.splitmanager.api.dto.CreateTransactionRequest;
 import com.splitmanager.api.dto.FinalizeRequest;
+import com.splitmanager.api.dto.ReceiptDraftDto;
 import com.splitmanager.api.dto.StatusUpdateRequest;
 import com.splitmanager.api.dto.TransactionDetailDto;
 import com.splitmanager.api.dto.TransactionDto;
@@ -12,6 +13,7 @@ import com.splitmanager.api.model.SplitDefinition;
 import com.splitmanager.api.model.Transaction;
 import com.splitmanager.api.model.TransactionStatus;
 import com.splitmanager.api.model.TransactionType;
+import com.splitmanager.api.service.DeduplicationService;
 import com.splitmanager.api.service.PersonService;
 import com.splitmanager.api.service.ReceiptImageStore;
 import com.splitmanager.api.service.ReceiptParsingService;
@@ -47,6 +49,7 @@ public class TransactionController {
   private final SplitSummaryService summaryService;
   private final ReceiptParsingService parsingService;
   private final ReceiptImageStore imageStore;
+  private final DeduplicationService deduplicationService;
   private final CurrentUser currentUser;
 
   public TransactionController(
@@ -55,18 +58,23 @@ public class TransactionController {
       SplitSummaryService summaryService,
       ReceiptParsingService parsingService,
       ReceiptImageStore imageStore,
+      DeduplicationService deduplicationService,
       CurrentUser currentUser) {
     this.transactionService = transactionService;
     this.personService = personService;
     this.summaryService = summaryService;
     this.parsingService = parsingService;
     this.imageStore = imageStore;
+    this.deduplicationService = deduplicationService;
     this.currentUser = currentUser;
   }
 
-  /** Upload a receipt photo; get back a draft transaction with the parsed fields. */
+  /**
+   * Upload a receipt photo; get back a draft transaction with the parsed fields, plus a
+   * warning if the ledger already holds something that looks like the same charge.
+   */
   @PostMapping("/from-receipt")
-  public ResponseEntity<TransactionDto> createFromReceipt(@RequestParam("image") MultipartFile image)
+  public ResponseEntity<ReceiptDraftDto> createFromReceipt(@RequestParam("image") MultipartFile image)
       throws IOException {
     String userId = currentUser.userId();
     byte[] bytes = image.getBytes();
@@ -87,7 +95,18 @@ public class TransactionController {
         transactionService.createFromReceipt(
             userId, s3Key, parsed.merchant(), LocalDate.now(), parsed.items(), subtotal, parsed.tax(), total);
 
-    return ResponseEntity.status(HttpStatus.CREATED).body(TransactionDto.from(transaction));
+    // Checked after the draft exists, so the draft itself is excluded from the results -
+    // it shares the merchant, date, and amount it was just created with.
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(
+            new ReceiptDraftDto(
+                TransactionDto.from(transaction),
+                deduplicationService.findMatches(
+                    userId,
+                    transaction.getMerchant(),
+                    transaction.getTransactionDate(),
+                    transaction.getTotal(),
+                    transaction.getTransactionId())));
   }
 
   @PostMapping

@@ -1,0 +1,50 @@
+# Column mappings for card-issuer CSV exports (LLD 6.1).
+#
+# An import without an explicit profile falls back to header-name inference in
+# CsvStatementParser, which handles most exports. A profile exists for the cases where
+# inference is ambiguous - chiefly the sign convention, which cannot be inferred from a
+# header at all and inverts the whole statement when guessed wrong.
+profiles:
+  - id: chase
+    label: Chase
+    dateColumn: Transaction Date
+    descriptionColumn: Description
+    amountColumn: Amount
+    dateFormat: MM/dd/yyyy
+    # Chase writes purchases as negative numbers.
+    debitsArePositive: false
+
+  - id: amex
+    label: American Express
+    dateColumn: Date
+    descriptionColumn: Description
+    amountColumn: Amount
+    dateFormat: MM/dd/yyyy
+    debitsArePositive: true
+
+  - id: capital-one
+    label: Capital One
+    dateColumn: Transaction Date
+    descriptionColumn: Description
+    # Capital One splits direction across two columns rather than using a sign.
+    amountColumn: Debit
+    debitCreditColumn: Credit
+    dateFormat: yyyy-MM-dd
+    debitsArePositive: true
+
+  - id: citi
+    label: Citi
+    dateColumn: Date
+    descriptionColumn: Description
+    amountColumn: Debit
+    debitCreditColumn: Credit
+    dateFormat: MM/dd/yyyy
+    debitsArePositive: true
+
+  - id: discover
+    label: Discover
+    dateColumn: Trans. Date
+    descriptionColumn: Description
+    amountColumn: Amount
+    dateFormat: MM/dd/yyyy
+    debitsArePositive: true

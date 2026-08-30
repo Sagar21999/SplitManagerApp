@@ -60,6 +60,14 @@
     </dependency>
 
     <dependency>
+      <!-- Statement CSVs contain quoted descriptors with embedded commas; splitting on
+           commas by hand silently corrupts exactly those rows. -->
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-csv</artifactId>
+      <version>1.11.0</version>
+    </dependency>
+
+    <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
       <optional>true</optional>

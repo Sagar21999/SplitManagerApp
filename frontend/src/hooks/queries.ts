@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { balances, people, reimbursements, transactions } from '../apiClient';
+import { balances, people, reimbursements, statements, transactions } from '../apiClient';
 import type {
+  ConfirmCandidateRequest,
   FinalizeRequest,
   TransactionStatus,
   TransactionType,
@@ -23,6 +24,8 @@ export const keys = {
   balances: () => ['balances'] as const,
   reimbursements: () => ['reimbursements'] as const,
   reimbursementSummary: () => ['reimbursements', 'summary'] as const,
+  statementImport: (id: string) => ['statementImport', id] as const,
+  issuerProfiles: () => ['issuerProfiles'] as const,
 };
 
 export function useTransactions(filters: {
@@ -140,5 +143,58 @@ export function useArchivePerson() {
   return useMutation({
     mutationFn: (id: string) => people.archive(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.people() }),
+  });
+}
+
+export function useIssuerProfiles() {
+  return useQuery({
+    queryKey: keys.issuerProfiles(),
+    queryFn: statements.issuerProfiles,
+    // Reference data shipped with the API - it only changes on deploy.
+    staleTime: Infinity,
+  });
+}
+
+export function useStatementImport(id: string | undefined) {
+  return useQuery({
+    queryKey: keys.statementImport(id ?? ''),
+    queryFn: () => statements.get(id as string),
+    enabled: Boolean(id),
+  });
+}
+
+export function useUploadStatement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ file, issuerProfile }: { file: File; issuerProfile?: string }) =>
+      statements.upload(file, issuerProfile),
+    // Seed the cache so the review page renders immediately rather than refetching
+    // everything the upload response already contained.
+    onSuccess: (imported) => qc.setQueryData(keys.statementImport(imported.importId), imported),
+  });
+}
+
+export function useConfirmCandidate(importId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      candidateId,
+      edits,
+    }: {
+      candidateId: string;
+      edits?: ConfirmCandidateRequest;
+    }) => statements.confirmCandidate(importId, candidateId, edits ?? {}),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.statementImport(importId) });
+      invalidateLedger(qc);
+    },
+  });
+}
+
+export function useDismissCandidate(importId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (candidateId: string) => statements.dismissCandidate(importId, candidateId),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.statementImport(importId) }),
   });
 }

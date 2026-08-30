@@ -3,8 +3,13 @@ import { getAccessToken } from './auth/tokenStore';
 import { beginLogin } from './auth/authFlow';
 import type {
   Balances,
+  ConfirmCandidateRequest,
   FinalizeRequest,
+  IssuerProfile,
   Person,
+  ReceiptDraft,
+  StatementCandidate,
+  StatementImport,
   Transaction,
   TransactionDetail,
   TransactionStatus,
@@ -71,7 +76,7 @@ function qs(params: Record<string, string | number | undefined | null>): string 
 }
 
 export const transactions = {
-  async createFromReceipt(image: File): Promise<Transaction> {
+  async createFromReceipt(image: File): Promise<ReceiptDraft> {
     const { apiUrl } = await getConfig();
     const auth = await authHeaders();
     const formData = new FormData();
@@ -83,7 +88,7 @@ export const transactions = {
       body: formData,
       headers: auth,
     });
-    return handle<Transaction>(res, 'POST', '/transactions/from-receipt');
+    return handle<ReceiptDraft>(res, 'POST', '/transactions/from-receipt');
   },
 
   list(filters: { status?: TransactionStatus; type?: TransactionType; limit?: number } = {}) {
@@ -135,6 +140,42 @@ export const people = {
   },
   archive(id: string) {
     return request<void>(`/people/${id}`, { method: 'DELETE' });
+  },
+};
+
+export const statements = {
+  issuerProfiles() {
+    return request<IssuerProfile[]>('/statements/issuer-profiles');
+  },
+
+  async upload(file: File, issuerProfile?: string): Promise<StatementImport> {
+    const { apiUrl } = await getConfig();
+    const auth = await authHeaders();
+    const formData = new FormData();
+    formData.append('file', file);
+    if (issuerProfile) formData.append('issuerProfile', issuerProfile);
+    // As with the receipt upload: no Content-Type, so fetch sets the multipart boundary.
+    const res = await fetch(`${apiUrl}/statements`, { method: 'POST', body: formData, headers: auth });
+    return handle<StatementImport>(res, 'POST', '/statements');
+  },
+
+  get(id: string) {
+    return request<StatementImport>(`/statements/${id}`);
+  },
+
+  getCandidates(id: string) {
+    return request<StatementCandidate[]>(`/statements/${id}/candidates`);
+  },
+
+  confirmCandidate(id: string, candidateId: string, edits: ConfirmCandidateRequest = {}) {
+    return request<Transaction>(`/statements/${id}/candidates/${candidateId}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify(edits),
+    });
+  },
+
+  dismissCandidate(id: string, candidateId: string) {
+    return request<void>(`/statements/${id}/candidates/${candidateId}/dismiss`, { method: 'POST' });
   },
 };
 

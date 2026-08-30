@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { DuplicateWarningBanner } from '../components/DuplicateWarningBanner';
 import { useCreateFromReceipt } from '../hooks/queries';
+import type { DuplicateMatch } from '../types';
 
 /** Absorbs v1's UploadPage. capture="environment" opens the camera on a phone. */
 export function ReceiptCapturePage() {
@@ -8,11 +10,21 @@ export function ReceiptCapturePage() {
   const create = useCreateFromReceipt();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [draft, setDraft] = useState<{ id: string; duplicates: DuplicateMatch[] } | null>(null);
 
   const submit = () => {
     if (!file) return;
     create.mutate(file, {
-      onSuccess: (transaction) => navigate(`/split/${transaction.transactionId}`),
+      onSuccess: ({ transaction, duplicateWarnings }) => {
+        // A clean upload goes straight on to the split editor. When something in the
+        // ledger looks like the same charge - typically already imported from a
+        // statement - stop here and let the user look before adding a second copy.
+        if (duplicateWarnings.length === 0) {
+          navigate(`/split/${transaction.transactionId}`);
+          return;
+        }
+        setDraft({ id: transaction.transactionId, duplicates: duplicateWarnings });
+      },
     });
   };
 
@@ -34,14 +46,27 @@ export function ReceiptCapturePage() {
 
       {create.error && <p className="status-message error">{(create.error as Error).message}</p>}
 
-      <button
-        type="button"
-        className="primary-button"
-        disabled={!file || create.isPending}
-        onClick={submit}
-      >
-        {create.isPending ? 'Reading receipt…' : 'Upload & split'}
-      </button>
+      {draft ? (
+        <>
+          <DuplicateWarningBanner matches={draft.duplicates} />
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => navigate(`/split/${draft.id}`)}
+          >
+            Split it anyway
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          className="primary-button"
+          disabled={!file || create.isPending}
+          onClick={submit}
+        >
+          {create.isPending ? 'Reading receipt…' : 'Upload & split'}
+        </button>
+      )}
 
       <p className="hint">
         Not a receipt? You can also add a transaction by hand from the ledger later.

@@ -96,6 +96,74 @@ export interface UpdateTransactionRequest {
   notes?: string | null;
 }
 
+export type CandidateClassification = 'LIKELY_SPLIT' | 'LIKELY_REIMBURSEMENT' | 'UNLIKELY';
+
+export type CandidateStatus = 'PENDING' | 'CONFIRMED' | 'DISMISSED';
+
+export type StatementImportStatus = 'PARSING' | 'READY' | 'FAILED';
+
+/** An existing transaction that may already record the same charge (BRD FR19). */
+export interface DuplicateMatch {
+  transactionId: string;
+  /** MERCHANT_DATE_AMOUNT is a strong match; DATE_AMOUNT is weak but still shown. */
+  matchStrategy: 'MERCHANT_DATE_AMOUNT' | 'DATE_AMOUNT';
+  score: number;
+  merchant: string | null;
+  transactionDate: string;
+}
+
+export interface StatementCandidate {
+  candidateId: string;
+  importId: string;
+  sequence: number;
+  date: string;
+  rawDescription: string;
+  normalizedMerchant: string;
+  amount: number;
+  classification: CandidateClassification;
+  classificationConfidence: number;
+  duplicateMatches: DuplicateMatch[];
+  status: CandidateStatus;
+  resultingTransactionId: string | null;
+}
+
+export interface StatementImport {
+  importId: string;
+  fileName: string | null;
+  issuerProfile: string | null;
+  uploadedAt: string;
+  rowCount: number;
+  candidateCount: number;
+  status: StatementImportStatus;
+  /** Also set on a READY import when some rows were dropped - a partial-parse warning. */
+  failureReason: string | null;
+  candidates: StatementCandidate[];
+}
+
+export interface IssuerProfile {
+  id: string;
+  label: string;
+}
+
+export interface ConfirmCandidateRequest {
+  type?: TransactionType | null;
+  merchant?: string | null;
+  date?: string | null;
+  amount?: number | null;
+}
+
+/** What the receipt upload returns: the draft, plus anything that looks like it. */
+export interface ReceiptDraft {
+  transaction: Transaction;
+  duplicateWarnings: DuplicateMatch[];
+}
+
+export const CLASSIFICATION_LABELS: Record<CandidateClassification, string> = {
+  LIKELY_SPLIT: 'Likely split',
+  LIKELY_REIMBURSEMENT: 'Likely claim',
+  UNLIKELY: 'Unclassified',
+};
+
 export const STATUS_LABELS: Record<TransactionStatus, string> = {
   DRAFT: 'Draft',
   OPEN: 'Open',

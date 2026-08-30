@@ -2,11 +2,13 @@ import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, RequireAuth, useAuth } from './auth/AuthProvider';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
+import { CandidateReviewPage } from './pages/CandidateReviewPage';
 import { LedgerPage } from './pages/LedgerPage';
 import { PeoplePage } from './pages/PeoplePage';
 import { ReceiptCapturePage } from './pages/ReceiptCapturePage';
 import { ReimbursementsPage } from './pages/ReimbursementsPage';
 import { SplitEditorPage } from './pages/SplitEditorPage';
+import { StatementImportPage } from './pages/StatementImportPage';
 import { TransactionDetailPage } from './pages/TransactionDetailPage';
 
 const queryClient = new QueryClient({
@@ -35,6 +37,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
             Ledger
           </NavLink>
           <NavLink to="/capture">Add</NavLink>
+          <NavLink to="/statements">Import</NavLink>
           <NavLink to="/reimbursements">Claims</NavLink>
           <NavLink to="/people">People</NavLink>
         </nav>
@@ -56,6 +59,8 @@ function ProtectedRoutes() {
           <Route path="/capture" element={<ReceiptCapturePage />} />
           <Route path="/split/:id" element={<SplitEditorPage />} />
           <Route path="/transactions/:id" element={<TransactionDetailPage />} />
+          <Route path="/statements" element={<StatementImportPage />} />
+          <Route path="/statements/:id/review" element={<CandidateReviewPage />} />
           <Route path="/reimbursements" element={<ReimbursementsPage />} />
           <Route path="/people" element={<PeoplePage />} />
           <Route path="*" element={<p className="status-message">Page not found.</p>} />
