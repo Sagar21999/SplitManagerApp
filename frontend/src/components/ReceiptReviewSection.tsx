@@ -1,8 +1,8 @@
-import type { ReceiptItem } from '../types';
+import type { LineItem } from '../types';
 
 interface ReceiptItemRowProps {
-  item: ReceiptItem;
-  onChange: (updated: ReceiptItem) => void;
+  item: LineItem;
+  onChange: (updated: LineItem) => void;
   onRemove: (id: string) => void;
 }
 
@@ -32,11 +32,7 @@ function ReceiptItemRow({ item, onChange, onRemove }: ReceiptItemRowProps) {
   );
 }
 
-interface AddItemButtonProps {
-  onAdd: () => void;
-}
-
-function AddItemButton({ onAdd }: AddItemButtonProps) {
+function AddItemButton({ onAdd }: { onAdd: () => void }) {
   return (
     <button type="button" className="add-button" onClick={onAdd}>
       + Add item
@@ -46,26 +42,35 @@ function AddItemButton({ onAdd }: AddItemButtonProps) {
 
 interface ReceiptReviewSectionProps {
   merchant: string | null;
-  items: ReceiptItem[];
-  onItemsChange: (items: ReceiptItem[]) => void;
+  items: LineItem[];
+  onMerchantChange: (merchant: string) => void;
+  onItemsChange: (items: LineItem[]) => void;
 }
 
-export function ReceiptReviewSection({ merchant, items, onItemsChange }: ReceiptReviewSectionProps) {
-  const updateItem = (updated: ReceiptItem) => {
+export function ReceiptReviewSection({
+  merchant,
+  items,
+  onMerchantChange,
+  onItemsChange,
+}: ReceiptReviewSectionProps) {
+  const updateItem = (updated: LineItem) =>
     onItemsChange(items.map((item) => (item.id === updated.id ? updated : item)));
-  };
-
-  const removeItem = (id: string) => {
-    onItemsChange(items.filter((item) => item.id !== id));
-  };
-
-  const addItem = () => {
+  const removeItem = (id: string) => onItemsChange(items.filter((item) => item.id !== id));
+  const addItem = () =>
     onItemsChange([...items, { id: crypto.randomUUID(), name: '', price: 0 }]);
-  };
 
   return (
     <section className="card">
-      <h2>{merchant ?? 'Receipt'}</h2>
+      <h2>Receipt</h2>
+      <label className="field">
+        Merchant
+        <input
+          type="text"
+          value={merchant ?? ''}
+          placeholder="Where was this?"
+          onChange={(e) => onMerchantChange(e.target.value)}
+        />
+      </label>
       <div className="item-list">
         {items.map((item) => (
           <ReceiptItemRow key={item.id} item={item} onChange={updateItem} onRemove={removeItem} />

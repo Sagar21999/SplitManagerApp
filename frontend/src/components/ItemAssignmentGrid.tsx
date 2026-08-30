@@ -1,69 +1,59 @@
-import type { Participant, ReceiptItem } from '../types';
-
-interface ItemAssignmentRowProps {
-  item: ReceiptItem;
-  participants: Participant[];
-  assignedIds: string[];
-  onToggle: (participantId: string) => void;
-}
-
-function ItemAssignmentRow({ item, participants, assignedIds, onToggle }: ItemAssignmentRowProps) {
-  return (
-    <div className="assignment-row">
-      <div className="assignment-item-name">
-        {item.name} <span className="assignment-item-price">${item.price.toFixed(2)}</span>
-      </div>
-      <div className="assignment-checkboxes">
-        {participants.map((p) => (
-          <label key={p.id} className="assignment-checkbox">
-            <input
-              type="checkbox"
-              checked={assignedIds.includes(p.id)}
-              onChange={() => onToggle(p.id)}
-            />
-            {p.name}
-          </label>
-        ))}
-      </div>
-    </div>
-  );
-}
+import { SELF } from '../types';
+import type { LineItem, Person } from '../types';
 
 interface ItemAssignmentGridProps {
-  items: ReceiptItem[];
-  participants: Participant[];
+  items: LineItem[];
+  people: Person[];
+  participantIds: string[];
   assignments: Record<string, string[]>;
   onAssignmentChange: (itemId: string, participantIds: string[]) => void;
 }
 
 export function ItemAssignmentGrid({
   items,
-  participants,
+  people,
+  participantIds,
   assignments,
   onAssignmentChange,
 }: ItemAssignmentGridProps) {
+  const label = (id: string) =>
+    id === SELF ? 'You' : (people.find((p) => p.personId === id)?.displayName ?? id);
+
   const toggle = (itemId: string, participantId: string) => {
     const current = assignments[itemId] ?? [];
-    const next = current.includes(participantId)
-      ? current.filter((id) => id !== participantId)
-      : [...current, participantId];
-    onAssignmentChange(itemId, next);
+    onAssignmentChange(
+      itemId,
+      current.includes(participantId)
+        ? current.filter((id) => id !== participantId)
+        : [...current, participantId],
+    );
   };
 
   return (
     <section className="card">
       <h2>Who had what?</h2>
-      {participants.length === 0 ? (
-        <p className="hint">Add participants first.</p>
+      {participantIds.length === 0 ? (
+        <p className="hint">Pick who was involved first.</p>
       ) : (
         items.map((item) => (
-          <ItemAssignmentRow
-            key={item.id}
-            item={item}
-            participants={participants}
-            assignedIds={assignments[item.id] ?? []}
-            onToggle={(participantId) => toggle(item.id, participantId)}
-          />
+          <div className="assignment-row" key={item.id}>
+            <div className="assignment-item-name">
+              {item.name || 'Item'}{' '}
+              <span className="assignment-item-price">${item.price.toFixed(2)}</span>
+            </div>
+            <div className="chip-row">
+              {participantIds.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`chip chip-sm ${(assignments[item.id] ?? []).includes(id) ? 'chip-on' : ''}`}
+                  onClick={() => toggle(item.id, id)}
+                >
+                  {label(id)}
+                </button>
+              ))}
+            </div>
+          </div>
         ))
       )}
     </section>

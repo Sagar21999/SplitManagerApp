@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { completeLogin } from '../auth/authFlow';
 import { useAuth } from '../auth/AuthProvider';
 
 /**
- * Lands the OAuth redirect: exchanges the code for tokens, then replaces this URL in
- * history so the one-time code never survives in the back button or a shared link.
+ * Lands the OAuth redirect: exchanges the code for tokens, then replaces this URL so the
+ * one-time code never survives in the back button or a copied link.
  */
 export function AuthCallbackPage() {
   const { markAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -17,9 +19,8 @@ export function AuthCallbackPage() {
       .then(({ postLoginPath }) => {
         if (cancelled) return;
         markAuthenticated();
-        window.history.replaceState({}, '', postLoginPath);
-        // The app reads its route from window.location, so nudge it to re-render.
-        window.dispatchEvent(new PopStateEvent('popstate'));
+        // replace, not push — going "back" to a spent authorization code is a dead end.
+        navigate(postLoginPath || '/', { replace: true });
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Sign-in failed.');
@@ -28,13 +29,13 @@ export function AuthCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [markAuthenticated]);
+  }, [markAuthenticated, navigate]);
 
   if (error) {
     return (
-      <div className="status-message">
+      <div className="status-message error">
         <p>{error}</p>
-        <button type="button" onClick={() => window.location.assign('/')}>
+        <button type="button" className="add-button" onClick={() => window.location.assign('/')}>
           Try again
         </button>
       </div>

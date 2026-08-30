@@ -21,8 +21,15 @@ export function TipEntrySection({ subtotal, tip, onTipChange }: TipEntrySectionP
             {Math.round(pct * 100)}%
           </button>
         ))}
+        <button
+          type="button"
+          className={`preset-button ${tip === 0 ? 'active' : ''}`}
+          onClick={() => onTipChange(0)}
+        >
+          None
+        </button>
       </div>
-      <label className="manual-tip">
+      <label className="field">
         Custom amount
         <input
           type="number"

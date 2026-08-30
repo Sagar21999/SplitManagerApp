@@ -27,8 +27,8 @@
 - [x] `frontend/`: `AuthProvider`, `RequireAuth`, PKCE login, `/auth/callback`, bearer token in `apiClient`
 - [x] Token storage: access token in memory, refresh token in `sessionStorage`, nothing in `localStorage`
 - [x] **Deployed to Beta and verified: unauthenticated `/api/transactions`, `/api/balances`, `/api/people` all return 401; `/api/actuator/health` returns 200 UP** (FR25 — repeat every deploy)
-- [ ] Provision the single user account in the Beta pool *(user action)*
-- [ ] Verify hosted-UI login lands back in the app with a working session *(user action)*
+- [x] Provision the single user account in the Beta pool — `sagar21naidu@gmail.com`, CONFIRMED, sub `e418e4e8-60a1-7059-818a-07935039fba8`
+- [x] Verified hosted-UI login end to end: PKCE redirect (S256) -> sign in -> `/auth/callback` code exchange -> lands on `/` signed in; reload silently refreshes via `POST /oauth2/token` 200 with no re-login and no console errors
 
 **Beta environment**
 - Frontend / API: `https://d3frwzr61jzv4k.cloudfront.net`
@@ -52,15 +52,17 @@
 
 ## Phase 3 — Ledger UI
 
-- [ ] Multi-route shell + nav (Ledger | Capture | Import | Reimbursements | People)
-- [ ] `LedgerPage`: transaction list, filters, `BalanceSummaryBar`
-- [ ] `TransactionDetailPage`: breakdown, share text + copy, `StatusActionBar`
-- [ ] `PeoplePage` + `PersonPicker` (saved directory, inline add)
-- [ ] `SplitEditorPage`: carry over receipt review / tip / item assignment; add `PayerSelector`, extend `SplitModeToggle` to five modes, add `WeightEntryGrid`
-- [ ] `ReceiptCapturePage` (absorbs the v1 upload page)
-- [ ] TanStack Query for server state; delete `useReceiptSession` and the v1 single-route `SplitPage`
-- [ ] Mobile-responsive pass
-- [ ] Deploy to Beta, click through the full receipt → split → finalize → status flow
+- [x] Multi-route shell + nav (Ledger | Add | Claims | People) on react-router v7
+- [x] `LedgerPage`: transaction list, status filters, `BalanceSummaryBar`
+- [x] `TransactionDetailPage`: items, split breakdown, `ShareTextPanel` + copy, `StatusActionBar`, delete
+- [x] `PeoplePage` + `PersonPicker` (saved directory, inline add, rename, archive)
+- [x] `SplitEditorPage`: receipt review / tip / totals; `PayerSelector`, 5-mode `SplitModeToggle`, `WeightEntryGrid`, `ItemAssignmentGrid`, live `SplitSummary`
+- [x] `ReceiptCapturePage` (absorbs the v1 upload page)
+- [x] TanStack Query for server state + invalidation; deleted `useReceiptSession`, `SplitPage`, `UploadPage`, `ParticipantsSection`, `ConfirmButton`, `ConfirmationModal`
+- [x] `splitCalculation.ts` rewritten to mirror the API's 5-mode weight pipeline
+- [x] Mobile-responsive pass; light/dark via `prefers-color-scheme`
+- [x] `react-router-dom` v7 (v6 shipped an open-redirect advisory in the production bundle)
+- [ ] Deploy to Beta, click through receipt -> split -> finalize -> status flow *(needs push)*
 
 ## Phase 4 — CSV statement import + dedup
 

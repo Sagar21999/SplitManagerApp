@@ -2,14 +2,18 @@ import { getConfig } from './config';
 import { getAccessToken } from './auth/tokenStore';
 import { beginLogin } from './auth/authFlow';
 import type {
-  FinalizeSplitResponse,
-  ParseReceiptResponse,
-  SessionResponse,
-  SubmitExpenseRequest,
+  Balances,
+  FinalizeRequest,
+  Person,
+  Transaction,
+  TransactionDetail,
+  TransactionStatus,
+  TransactionType,
+  UpdateTransactionRequest,
 } from './types';
 
 /**
- * Every API call carries the Cognito access token. `getAccessToken()` refreshes
+ * Every call carries the Cognito access token. `getAccessToken()` refreshes
  * transparently when the current one is stale, so callers never deal with expiry.
  */
 async function authHeaders(): Promise<Record<string, string>> {
@@ -24,13 +28,25 @@ async function authHeaders(): Promise<Record<string, string>> {
 
 async function handle<T>(res: Response, method: string, path: string): Promise<T> {
   if (res.status === 401) {
-    // The token was rejected despite being unexpired — revoked, or the pool changed.
-    // Nothing to retry locally; send the user back through sign-in.
+    // Rejected despite being unexpired — revoked, or the pool changed. Nothing to
+    // retry locally; send the user back through sign-in.
     await beginLogin();
     throw new Error('Session expired.');
   }
   if (!res.ok) {
-    throw new Error(`${method} ${path} failed: ${res.status}`);
+    // The API returns { "error": "..." } for handled failures; surfacing that message
+    // is the difference between "400" and "Percentages must sum to 100, got 60".
+    let message = `${method} ${path} failed: ${res.status}`;
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (body?.error) message = body.error;
+    } catch {
+      /* non-JSON body — keep the status-code message */
+    }
+    throw new Error(message);
+  }
+  if (res.status === 204) {
+    return undefined as T;
   }
   return res.json() as Promise<T>;
 }
@@ -45,28 +61,94 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return handle<T>(res, init?.method ?? 'GET', path);
 }
 
-export function getSession(sessionId: string): Promise<SessionResponse> {
-  return request<SessionResponse>(`/session/${sessionId}`);
+function qs(params: Record<string, string | number | undefined | null>): string {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') search.set(k, String(v));
+  });
+  const s = search.toString();
+  return s ? `?${s}` : '';
 }
 
-export function finalizeSplit(payload: SubmitExpenseRequest): Promise<FinalizeSplitResponse> {
-  return request<FinalizeSplitResponse>('/finalize-split', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-}
+export const transactions = {
+  async createFromReceipt(image: File): Promise<Transaction> {
+    const { apiUrl } = await getConfig();
+    const auth = await authHeaders();
+    const formData = new FormData();
+    formData.append('image', image);
+    // No Content-Type header here — fetch sets the multipart boundary itself when given
+    // a FormData body; setting it manually (like request()'s JSON default) breaks it.
+    const res = await fetch(`${apiUrl}/transactions/from-receipt`, {
+      method: 'POST',
+      body: formData,
+      headers: auth,
+    });
+    return handle<Transaction>(res, 'POST', '/transactions/from-receipt');
+  },
 
-export async function parseReceipt(image: File): Promise<ParseReceiptResponse> {
-  const { apiUrl } = await getConfig();
-  const auth = await authHeaders();
-  const formData = new FormData();
-  formData.append('image', image);
-  // No Content-Type header here — fetch sets the multipart boundary itself when given
-  // a FormData body; setting it manually (like request()'s JSON default) breaks it.
-  const res = await fetch(`${apiUrl}/parse-receipt`, {
-    method: 'POST',
-    body: formData,
-    headers: auth,
-  });
-  return handle<ParseReceiptResponse>(res, 'POST', '/parse-receipt');
-}
+  list(filters: { status?: TransactionStatus; type?: TransactionType; limit?: number } = {}) {
+    return request<Transaction[]>(`/transactions${qs(filters)}`);
+  },
+
+  get(id: string) {
+    return request<TransactionDetail>(`/transactions/${id}`);
+  },
+
+  update(id: string, body: UpdateTransactionRequest) {
+    return request<Transaction>(`/transactions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  },
+
+  finalize(id: string, body: FinalizeRequest) {
+    return request<TransactionDetail>(`/transactions/${id}/finalize`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
+
+  updateStatus(id: string, status: TransactionStatus) {
+    return request<Transaction>(`/transactions/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  remove(id: string) {
+    return request<void>(`/transactions/${id}`, { method: 'DELETE' });
+  },
+};
+
+export const people = {
+  list() {
+    return request<Person[]>('/people');
+  },
+  create(displayName: string) {
+    return request<Person>('/people', { method: 'POST', body: JSON.stringify({ displayName }) });
+  },
+  rename(id: string, displayName: string) {
+    return request<Person>(`/people/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ displayName }),
+    });
+  },
+  archive(id: string) {
+    return request<void>(`/people/${id}`, { method: 'DELETE' });
+  },
+};
+
+export const balances = {
+  get() {
+    return request<Balances>('/balances');
+  },
+};
+
+export const reimbursements = {
+  list(limit = 200) {
+    return request<Transaction[]>(`/reimbursements${qs({ limit })}`);
+  },
+  summary(limit = 200) {
+    return request<{ summaryText: string }>(`/reimbursements/summary${qs({ limit })}`);
+  },
+};
