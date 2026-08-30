@@ -23,8 +23,7 @@ cognito:
 
 split-manager:
   env-name: ${ENV_NAME:local}
-  table-name: ${TABLE_NAME:split-manager-local-receipt-sessions}
+  table-name: ${TABLE_NAME:split-manager-local-ledger}
   images-bucket-name: ${IMAGES_BUCKET_NAME:split-manager-local-receipt-images}
-  session-ttl-hours: 24
+  statements-bucket-name: ${STATEMENTS_BUCKET_NAME:split-manager-local-statements}
   frontend-origin: ${FRONTEND_ORIGIN:}
-  split-page-base-url: ${SPLIT_PAGE_BASE_URL:}

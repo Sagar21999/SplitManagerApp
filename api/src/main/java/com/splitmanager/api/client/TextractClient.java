@@ -1,6 +1,6 @@
 package com.splitmanager.api.client;
 
-import com.splitmanager.api.model.ReceiptItem;
+import com.splitmanager.api.model.LineItem;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,8 +43,8 @@ public class TextractClient {
         .map(v -> v.text());
   }
 
-  public List<ReceiptItem> extractLineItems(ExpenseDocument doc) {
-    List<ReceiptItem> items = new ArrayList<>();
+  public List<LineItem> extractLineItems(ExpenseDocument doc) {
+    List<LineItem> items = new ArrayList<>();
     for (LineItemGroup group : doc.lineItemGroups()) {
       for (LineItemFields lineItem : group.lineItems()) {
         String name = null;
@@ -62,7 +62,7 @@ public class TextractClient {
           }
         }
         if (name != null || price != null) {
-          items.add(new ReceiptItem(UUID.randomUUID().toString(), name, price));
+          items.add(new LineItem(UUID.randomUUID().toString(), name, price));
         }
       }
     }

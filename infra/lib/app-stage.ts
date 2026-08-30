@@ -33,6 +33,7 @@ export class AppStage extends cdk.Stage {
       envName: props.envName,
       table: this.dataStack.table,
       imagesBucket: this.dataStack.imagesBucket,
+      statementsBucket: this.dataStack.statementsBucket,
       userPool: this.authStack.userPool,
     });
 

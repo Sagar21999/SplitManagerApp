@@ -21,28 +21,34 @@
 - [x] `AuthStack`: Cognito user pool (self-signup off), hosted-UI domain
 - [x] Wire `AuthStack` through `AppStage` into `ApiStack` (issuer env var) and `FrontendStack`
 - [x] **Serve the API over HTTPS via a `/api/*` CloudFront behavior** — the ALB is plain HTTP, so an HTTPS page could not call it at all (mixed content). Also makes the SPA and API same-origin.
-- [x] `api/`: `server.servlet.context-path=/api` to match the forwarded prefix; ALB health check follows to `/api/actuator/health`
-- [x] `api/`: `spring-boot-starter-oauth2-resource-server`, `SecurityConfig`, fail-closed `JwtDecoder`; `/actuator/health` stays public
+- [x] `api/`: `server.servlet.context-path=/api`; ALB health check follows to `/api/actuator/health`
+- [x] `api/`: `spring-boot-starter-oauth2-resource-server`, `SecurityConfig`, fail-closed `JwtDecoder`
 - [x] `api/`: `WebConfig` CORS no longer defaults to `*`; empty means same-origin only
-- [x] `frontend/`: `AuthProvider`, `RequireAuth`, PKCE login, `/auth/callback` code exchange, bearer token in `apiClient`
+- [x] `frontend/`: `AuthProvider`, `RequireAuth`, PKCE login, `/auth/callback`, bearer token in `apiClient`
 - [x] Token storage: access token in memory, refresh token in `sessionStorage`, nothing in `localStorage`
-- [ ] Provision the single user account manually in the Beta pool *(needs AWS console)*
-- [ ] **Verify on Beta: an unauthenticated request returns 401** (FR25 — repeat this check every deploy)
-- [ ] Verify on Beta: hosted-UI login lands back in the app with a working session
+- [x] **Deployed to Beta and verified: unauthenticated `/api/transactions`, `/api/balances`, `/api/people` all return 401; `/api/actuator/health` returns 200 UP** (FR25 — repeat every deploy)
+- [ ] Provision the single user account in the Beta pool *(user action)*
+- [ ] Verify hosted-UI login lands back in the app with a working session *(user action)*
+
+**Beta environment**
+- Frontend / API: `https://d3frwzr61jzv4k.cloudfront.net`
+- Cognito pool: `us-east-1_tly0tdcrR` · client `4dtt6h8pnebl35iitm918tbph1`
+- Hosted UI: `https://split-manager-beta-548171705631.auth.us-east-1.amazoncognito.com`
 
 ## Phase 2 — Persistent ledger (backend)
 
-- [ ] `DataStack`: drop the TTL attribute, enable PITR, add GSI1 (chronological) and GSI2 (dedup), add the statements bucket
-- [ ] Models: `Transaction`, `TransactionType`, `TransactionStatus`, `LineItem`, `SplitDefinition`, `SplitMode`, `FinalizedSplit`, `Person`
-- [ ] `TransactionRepository`, `PersonRepository` on the single-table key design (LLD §4.2)
-- [ ] `TransactionService` — create, list, get, update, finalize, status transitions
-- [ ] `PersonService` — directory CRUD + `resolveOrCreate` on finalize (FR13)
-- [ ] `BalanceService` — computed on read over open transactions
-- [ ] Refactor `SplitCalculationService` to the unified weight pipeline (LLD §5), all five modes
-- [ ] `TransactionController`, `PersonController`, `BalanceController`
-- [ ] Delete `ReceiptSession`, `SessionStatus`, its repository/service, `SessionController`, `ExpenseController`, `SessionNotFoundException`
-- [ ] Unit tests: all five split modes, the sum-exactly-to-total invariant, illegal status transitions
-- [ ] Deploy to Beta and smoke-test the endpoints
+- [x] `DataStack`: TTL dropped, PITR on, GSI1 (chronological) + GSI2 (dedup), statements bucket, ledger table `RETAIN`
+- [x] Models: `Transaction`, `TransactionType`, `TransactionStatus`, `LineItem`, `SplitDefinition`, `SplitMode` (5 modes), `FinalizedSplit`, `Person`, `Participants`
+- [x] `TransactionRepository`, `PersonRepository` on the single-table key design (LLD 4.2)
+- [x] `TransactionService` — create, list, get, update draft, finalize, status transitions, ownership checks
+- [x] `PersonService` — directory CRUD + `resolveOrCreate` on finalize (FR13), archive not delete
+- [x] `BalanceService` — computed on read over OPEN/EXTERNALLY_ADDED transactions
+- [x] Refactor `SplitCalculationService` to the unified weight pipeline (LLD 5), all five modes
+- [x] `TransactionController`, `PersonController`, `BalanceController`, `ReimbursementController`
+- [x] `CurrentUser` — userId always from the JWT `sub`, never the request
+- [x] Delete `ReceiptSession`, `SessionStatus`, its repository/service, `SessionController`, `ExpenseController`, `ReceiptController`, `SessionNotFoundException`, `ReceiptItem`
+- [x] Unit tests: all five split modes, the sum-exactly-to-total invariant, status transitions, summary rendering (26 passing)
+- [ ] Deploy to Beta and smoke-test the new endpoints with a real token
 
 ## Phase 3 — Ledger UI
 

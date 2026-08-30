@@ -16,6 +16,7 @@ export interface ApiStackProps extends cdk.StackProps {
   envName: string;
   table: dynamodb.ITable;
   imagesBucket: s3.IBucket;
+  statementsBucket: s3.IBucket;
   userPool: cognito.IUserPool;
 }
 
@@ -47,6 +48,9 @@ export class ApiStack extends cdk.Stack {
     });
     props.table.grantReadWriteData(this.taskRole);
     props.imagesBucket.grantReadWrite(this.taskRole);
+    // Delete included: statement files are removed as soon as they are parsed (BRD FR20).
+    props.statementsBucket.grantReadWrite(this.taskRole);
+    props.statementsBucket.grantDelete(this.taskRole);
     this.taskRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ['textract:AnalyzeExpense'],
@@ -82,6 +86,7 @@ export class ApiStack extends cdk.Stack {
         ENV_NAME: props.envName,
         TABLE_NAME: props.table.tableName,
         IMAGES_BUCKET_NAME: props.imagesBucket.bucketName,
+        STATEMENTS_BUCKET_NAME: props.statementsBucket.bucketName,
         // Spring Security fetches this pool's JWKS from {issuer}/.well-known/jwks.json
         // and validates every incoming bearer token's signature, issuer, and expiry
         // against it. No shared secret is involved.
