@@ -48,7 +48,7 @@
 - [x] `CurrentUser` — userId always from the JWT `sub`, never the request
 - [x] Delete `ReceiptSession`, `SessionStatus`, its repository/service, `SessionController`, `ExpenseController`, `ReceiptController`, `SessionNotFoundException`, `ReceiptItem`
 - [x] Unit tests: all five split modes, the sum-exactly-to-total invariant, status transitions, summary rendering (26 passing)
-- [ ] Deploy to Beta and smoke-test the new endpoints with a real token
+- [x] Deployed to Beta: `split-manager-beta-ledger` ACTIVE with pk/sk + GSI1/GSI2 and no TTL; all four endpoints 401 unauthenticated, health 200
 
 ## Phase 3 — Ledger UI
 
@@ -62,7 +62,8 @@
 - [x] `splitCalculation.ts` rewritten to mirror the API's 5-mode weight pipeline
 - [x] Mobile-responsive pass; light/dark via `prefers-color-scheme`
 - [x] `react-router-dom` v7 (v6 shipped an open-redirect advisory in the production bundle)
-- [ ] Deploy to Beta, click through receipt -> split -> finalize -> status flow *(needs push)*
+- [x] Deployed to Beta; `config.json` now serves `apiUrl: /api` plus Cognito config
+- [ ] Click through receipt -> split -> finalize -> status on Beta *(user action)*
 
 ## Phase 4 — CSV statement import + dedup
 
@@ -101,6 +102,12 @@
 - [ ] README: live Beta URL, login notes, runbook
 
 ---
+
+## Known issues
+
+- **Pipeline does not trigger on push.** Two pushes produced zero executions; both runs needed `aws codepipeline start-pipeline-execution`. Cause: `DetectChanges` was absent from the synthesized template because CDK only emits it when `triggerOnPush` is passed explicitly. Fixed in `pipeline-stack.ts`, but the fix only takes effect after a run whose `UpdatePipeline` applies it — so expect one more manual start. If pushes still do not trigger after that, the GitHub App installation behind the connection needs reauthorizing in the console.
+- **Orphaned v1 table.** `split-manager-beta-receipt-sessions` (and the Prod equivalent) are left behind by the rename to `-ledger` and can be deleted by hand.
+- A newly-typed person cannot be chosen as the payer until after one finalize — they have no id until the API creates them. `PayerSelector` says so rather than hiding them.
 
 ## Deferred (revisit only if needed)
 

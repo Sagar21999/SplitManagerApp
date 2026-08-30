@@ -38,6 +38,12 @@ export class PipelineStack extends cdk.Stack {
       synth: new pipelines.ShellStep('Synth', {
         input: pipelines.CodePipelineSource.connection(GITHUB_OWNER_REPO, GITHUB_BRANCH, {
           connectionArn,
+          // Explicit, even though AWS documents DetectChanges as defaulting to true.
+          // Left unset, CDK omits the property from the template entirely, and in this
+          // account pushes were reaching GitHub without ever starting an execution —
+          // two separate pushes, zero runs, both needing a manual start. Emitting
+          // DetectChanges: true forces CodePipeline to (re)register the webhook.
+          triggerOnPush: true,
         }),
         commands: ['cd infra', 'npm ci', 'npx cdk synth'],
         primaryOutputDirectory: 'infra/cdk.out',
