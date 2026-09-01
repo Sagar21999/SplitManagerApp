@@ -51,7 +51,15 @@ public class TransactionService {
     return transaction;
   }
 
-  /** A transaction entered by hand, or promoted from a statement candidate. */
+  /**
+   * A transaction entered by hand, or promoted from a statement candidate.
+   *
+   * <p>A REIMBURSEMENT is born OPEN. There is nothing left to decide about one — the whole
+   * amount is claimed from the employer, and there is no split to finalize — so leaving it
+   * as a DRAFT would strand it: DRAFT only exits through {@link #finalizeSplit}, which
+   * refuses anything that is not a SPLIT. A SPLIT still needs participants and a mode, so
+   * it stays a draft for the split editor to finish.
+   */
   public Transaction create(
       String userId,
       TransactionType type,
@@ -61,6 +69,9 @@ public class TransactionService {
       String sourceStatementImportId) {
     Transaction transaction = baseTransaction(userId, type, merchant, transactionDate, total);
     transaction.setSourceStatementImportId(sourceStatementImportId);
+    if (type == TransactionType.REIMBURSEMENT) {
+      transaction.setStatus(TransactionStatus.OPEN);
+    }
     repository.save(transaction);
     return transaction;
   }

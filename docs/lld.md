@@ -599,6 +599,7 @@ The ±3-day window exists because a card statement posts a charge days after the
 /login                  -> LoginRedirect        (Cognito hosted UI)
 /auth/callback          -> AuthCallbackPage     (OAuth code exchange)
 /transactions/:id       -> TransactionDetailPage
+/transactions/new       -> ManualEntryPage       (escape hatch; see below)
 /capture                -> ReceiptCapturePage
 /split/:id              -> SplitEditorPage
 /statements             -> StatementImportPage
@@ -608,6 +609,8 @@ The ±3-day window exists because a card statement posts a charge days after the
 ```
 
 All routes except `/login` and `/auth/callback` sit behind a `<RequireAuth>` wrapper that redirects to the hosted UI when no valid token is held.
+
+`ManualEntryPage` is a deliberate escape hatch and not a main path. Photographing a receipt or importing a statement is the product; typing amounts in by hand is the friction the BRD exists to remove, so this page stays four fields (type, merchant, date, total) and collects no line items. It exists for cash, and for a charge that has neither a receipt photo nor a statement row behind it yet. A SPLIT created here goes on to `SplitEditorPage`; a REIMBURSEMENT is already complete and goes to its detail page.
 
 ### 8.2 Component tree
 
@@ -625,6 +628,7 @@ App
  │   ├─ ShareTextPanel               (summary + copy action)
  │   └─ StatusActionBar              (Mark as externally added | Mark settled | Reopen)
  ├─ ReceiptCapturePage -> FileInput (capture="environment") + DuplicateWarningBanner
+ ├─ ManualEntryPage    -> type toggle + merchant/date/total                [ESCAPE HATCH]
  ├─ SplitEditorPage
  │   ├─ ReceiptReviewSection         (ReceiptItemRow*, AddItemButton)      [CARRIED OVER]
  │   ├─ TipEntrySection              (18/20/25% presets + manual)          [CARRIED OVER]

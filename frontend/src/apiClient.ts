@@ -4,6 +4,7 @@ import { beginLogin } from './auth/authFlow';
 import type {
   Balances,
   ConfirmCandidateRequest,
+  CreateTransactionRequest,
   FinalizeRequest,
   IssuerProfile,
   Person,
@@ -89,6 +90,11 @@ export const transactions = {
       headers: auth,
     });
     return handle<ReceiptDraft>(res, 'POST', '/transactions/from-receipt');
+  },
+
+  /** Hand entry, for a charge with no receipt photo and no statement row behind it. */
+  create(body: CreateTransactionRequest) {
+    return request<Transaction>('/transactions', { method: 'POST', body: JSON.stringify(body) });
   },
 
   list(filters: { status?: TransactionStatus; type?: TransactionType; limit?: number } = {}) {

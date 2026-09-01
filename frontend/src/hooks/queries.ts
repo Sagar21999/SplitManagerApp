@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { balances, people, reimbursements, statements, transactions } from '../apiClient';
 import type {
   ConfirmCandidateRequest,
+  CreateTransactionRequest,
   FinalizeRequest,
   TransactionStatus,
   TransactionType,
@@ -70,6 +71,14 @@ export function useCreateFromReceipt() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (image: File) => transactions.createFromReceipt(image),
+    onSuccess: () => invalidateLedger(qc),
+  });
+}
+
+export function useCreateTransaction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateTransactionRequest) => transactions.create(body),
     onSuccess: () => invalidateLedger(qc),
   });
 }

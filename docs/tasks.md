@@ -93,6 +93,16 @@
 - [x] `generateReimbursementSummary` + export action (FR23) *(shipped early, with Phase 3; unit-tested)*
 - [ ] Verify the Uber/transit path end to end on Beta *(user action)*
 
+## Phase 6a — Manual entry *(added after Phase 6; not in the original plan)*
+
+Added because `ReceiptCapturePage` promised "add a transaction by hand" and no such path existed. The API side (`POST /transactions`) already existed — it is how statement candidates are promoted — so only the UI was missing.
+
+- [x] `ManualEntryPage` at `/transactions/new`; entry points from the receipt page and the empty ledger
+- [x] `apiClient.transactions.create` + `useCreateTransaction`
+- [x] `TransactionService.create` now opens a REIMBURSEMENT rather than leaving it a DRAFT — the rule used to live only in the statement path, so a hand-entered claim would have been stranded (DRAFT exits only via `finalizeSplit`, which refuses non-SPLIT). `StatementIngestionService` lost its now-redundant status update.
+- [x] `TransactionServiceCreateTest` pins that invariant, since two entry paths now share it (55 tests passing)
+- [x] LLD §8.1/§8.2 updated with the route and why it is an escape hatch rather than a main path
+
 ## Phase 7 — Wrap-up
 
 - [ ] Full manual Beta checklist (LLD §11) in one pass *(user action; deferred until all phases are built)*

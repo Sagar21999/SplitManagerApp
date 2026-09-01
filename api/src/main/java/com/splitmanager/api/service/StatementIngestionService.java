@@ -11,7 +11,6 @@ import com.splitmanager.api.model.StatementCandidate;
 import com.splitmanager.api.model.StatementImport;
 import com.splitmanager.api.model.StatementImportStatus;
 import com.splitmanager.api.model.Transaction;
-import com.splitmanager.api.model.TransactionStatus;
 import com.splitmanager.api.model.TransactionType;
 import com.splitmanager.api.parser.ParseResult;
 import com.splitmanager.api.parser.RawStatementRow;
@@ -179,9 +178,8 @@ public class StatementIngestionService {
   /**
    * Promotes a candidate into the ledger.
    *
-   * <p>A reimbursement has nothing left to decide — the whole amount is claimed from the
-   * employer — so it is opened immediately. A split still needs participants and a mode,
-   * so it lands as a DRAFT for the split editor to finish.
+   * <p>The resulting status is decided by {@link TransactionService#create}: a
+   * reimbursement is born OPEN, a split lands as a DRAFT for the split editor to finish.
    */
   public Transaction confirm(
       String userId,
@@ -216,11 +214,6 @@ public class StatementIngestionService {
             date != null ? date : candidate.getDate(),
             amount != null ? amount : candidate.getAmount(),
             importId);
-
-    if (resolvedType == TransactionType.REIMBURSEMENT) {
-      transaction =
-          transactionService.updateStatus(userId, transaction.getTransactionId(), TransactionStatus.OPEN);
-    }
 
     candidate.setStatus(CandidateStatus.CONFIRMED);
     candidate.setResultingTransactionId(transaction.getTransactionId());

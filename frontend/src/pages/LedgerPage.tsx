@@ -42,7 +42,9 @@ export function LedgerPage() {
 
       {!isLoading && transactions.length === 0 && (
         <p className="status-message">
-          Nothing here yet. <Link to="/capture">Add a receipt</Link>.
+          Nothing here yet. <Link to="/capture">Add a receipt</Link>,{' '}
+          <Link to="/statements">import a statement</Link>, or{' '}
+          <Link to="/transactions/new">add one by hand</Link>.
         </p>
       )}
 

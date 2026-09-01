@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { DuplicateWarningBanner } from '../components/DuplicateWarningBanner';
 import { useCreateFromReceipt } from '../hooks/queries';
 import type { DuplicateMatch } from '../types';
@@ -69,7 +69,7 @@ export function ReceiptCapturePage() {
       )}
 
       <p className="hint">
-        Not a receipt? You can also add a transaction by hand from the ledger later.
+        Not a receipt? <Link to="/transactions/new">Add it by hand</Link> instead.
       </p>
     </div>
   );

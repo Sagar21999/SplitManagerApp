@@ -4,6 +4,7 @@ import { AuthProvider, RequireAuth, useAuth } from './auth/AuthProvider';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
 import { CandidateReviewPage } from './pages/CandidateReviewPage';
 import { LedgerPage } from './pages/LedgerPage';
+import { ManualEntryPage } from './pages/ManualEntryPage';
 import { PeoplePage } from './pages/PeoplePage';
 import { ReceiptCapturePage } from './pages/ReceiptCapturePage';
 import { ReimbursementsPage } from './pages/ReimbursementsPage';
@@ -57,6 +58,7 @@ function ProtectedRoutes() {
         <Routes>
           <Route path="/" element={<LedgerPage />} />
           <Route path="/capture" element={<ReceiptCapturePage />} />
+          <Route path="/transactions/new" element={<ManualEntryPage />} />
           <Route path="/split/:id" element={<SplitEditorPage />} />
           <Route path="/transactions/:id" element={<TransactionDetailPage />} />
           <Route path="/statements" element={<StatementImportPage />} />

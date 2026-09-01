@@ -85,6 +85,13 @@ export interface FinalizeRequest {
   newPersonNames?: string[];
 }
 
+export interface CreateTransactionRequest {
+  type: TransactionType;
+  merchant: string;
+  transactionDate: string;
+  total: number;
+}
+
 export interface UpdateTransactionRequest {
   merchant?: string | null;
   transactionDate?: string | null;
