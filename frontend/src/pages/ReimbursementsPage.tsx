@@ -20,7 +20,7 @@ export function ReimbursementsPage() {
       {error && <p className="status-message error">{(error as Error).message}</p>}
       {!isLoading && data.length === 0 && (
         <p className="status-message">
-          Nothing to claim. Statement import (coming next) is what fills this in.
+          Nothing to claim. Import a statement and confirm the travel charges to fill this in.
         </p>
       )}
 

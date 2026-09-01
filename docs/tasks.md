@@ -89,25 +89,28 @@
 
 ## Phase 6 — Reimbursements
 
-- [ ] `ReimbursementsPage` — filtered ledger view
-- [ ] `generateReimbursementSummary` + export action (FR23)
-- [ ] Verify the Uber/transit path end to end on Beta
+- [x] `ReimbursementsPage` — filtered ledger view *(shipped early, with Phase 3)*
+- [x] `generateReimbursementSummary` + export action (FR23) *(shipped early, with Phase 3; unit-tested)*
+- [ ] Verify the Uber/transit path end to end on Beta *(user action)*
 
 ## Phase 7 — Wrap-up
 
-- [ ] Full manual Beta checklist (LLD §11) in one pass
-- [ ] Confirm the statements bucket actually empties; receipt images retained
-- [ ] CloudWatch logs/alarms sanity check
-- [ ] Rotate the GitHub PAT shared earlier in the project; confirm no secrets in git history
-- [ ] README: live Beta URL, login notes, runbook
+- [ ] Full manual Beta checklist (LLD §11) in one pass *(user action; deferred until all phases are built)*
+- [ ] Confirm the statements bucket actually empties; receipt images retained *(needs a real import first)*
+- [ ] CloudWatch logs/alarms sanity check *(needs traffic from the verification pass)*
+- [x] Confirm no secrets in git history — scanned all 25 commits for token/key patterns and ever-committed credential files; the only hit, `SecretsConfig.java`, referenced a Secrets Manager *secret name*, never a value
+- [ ] Rotate the GitHub PAT shared earlier in the project *(user action — cannot be done from here)*
+- [x] README: live Beta URL, login notes, runbook
 
 ---
 
 ## Known issues
 
-- **Pipeline trigger fix applied, not yet observed working.** `DetectChanges` was absent from the synthesized template because CDK only emits it when `triggerOnPush` is passed explicitly. Fixed in `pipeline-stack.ts`; the 2026-08-30 run self-mutated and then succeeded, so the next push is the first that should start a run on its own. If it does not, the GitHub App installation behind the connection needs reauthorizing in the console.
+- **Pushes do not start a pipeline run — cause found, fix is a console action.** The AWS Connector for GitHub is present as an *authorized OAuth app* but was never *installed* as a GitHub App on the account. Those are different grants: the OAuth authorization lets the connection read the repo (which is why every manual run's Source stage succeeds), while the App installation is what delivers push events to AWS. Without it, `DetectChanges` has nothing to listen to. Ruled out along the way: `DetectChanges: "true"` **is** in the deployed source action, the connection reads `AVAILABLE`, and the empty `list-webhooks` is correct for a V1 connection-based source. Fix: AWS Console → Developer Tools → Settings → Connections → `split-manager-github` → install the app for the repo. Do it from the AWS side so the installation binds to the existing connection and the ARN in `pipeline-stack.ts` stays valid. Until then, start runs with `aws codepipeline start-pipeline-execution --name split-manager-pipeline`.
+  - *The `triggerOnPush` change was still a real fix* — CDK omits `DetectChanges` from the template entirely when it is left unset — it just was not this problem.
+  - A run that changes the pipeline self-mutates at `UpdatePipeline` and restarts as a **new execution**, cancelling the one you started. Expected, not a failure.
 - **Issuer sign conventions are unverified against real exports.** The profiles were written from documented formats, not from files. If an import comes back with everything counted as a credit (or with nothing at all), that profile's `debitsArePositive` is inverted — a one-line fix in `issuer-profiles.yml`. A profile whose columns do not match the uploaded file is dropped entirely and header inference takes over, so picking the wrong issuer degrades rather than corrupts.
-- **Orphaned v1 table.** `split-manager-beta-receipt-sessions` (and the Prod equivalent) are left behind by the rename to `-ledger` and can be deleted by hand.
+- ~~**Orphaned v1 table.**~~ Resolved — `list-tables` now returns only `split-manager-beta-ledger` and `split-manager-prod-ledger`, so the `-receipt-sessions` tables are already gone.
 - A newly-typed person cannot be chosen as the payer until after one finalize — they have no id until the API creates them. `PayerSelector` says so rather than hiding them.
 
 ## Deferred (revisit only if needed)
